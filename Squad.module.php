@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.4.0
+ * @version 1.6.0
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -18,13 +18,17 @@ require_once(__DIR__ . '/SquadKeys.php');
 
 class Squad extends WireData implements Module, ConfigurableModule {
 
+    public const MAX_VISION_IMAGES = 4;
+    public const MAX_VISION_IMAGE_BYTES = 8 * 1024 * 1024;
+    public const MAX_VISION_TOTAL_BYTES = 20 * 1024 * 1024;
+
     /**
      * Module information
      */
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.5.1',
+            'version'  => '1.6.0',
             'summary'  => __('AI integration for ProcessWire. Supports Anthropic, OpenAI, Google, xAI, and OpenRouter.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -185,6 +189,17 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 // Zhipu AI
                 'z-ai/glm-4.7'                              => 'GLM 4.7',
                 'z-ai/glm-5'                                => 'GLM 5',
+            ],
+            // OpenRouter exposes an OpenAI-compatible embeddings API as well.
+            'embedUrl'          => 'https://openrouter.ai/api/v1/embeddings',
+            'defaultEmbedModel' => 'openai/text-embedding-3-small',
+            'embedModels' => [
+                'google/gemini-embedding-2'          => 'Gemini Embedding 2 (via OR)',
+                'google/gemini-embedding-001'        => 'Gemini Embedding 001 (via OR)',
+                'openai/text-embedding-3-small'      => 'OpenAI Text Embedding 3 Small (via OR)',
+                'openai/text-embedding-3-large'      => 'OpenAI Text Embedding 3 Large (via OR)',
+                'qwen/qwen3-embedding-8b'            => 'Qwen3 Embedding 8B (via OR)',
+                'baai/bge-m3'                        => 'BAAI BGE-M3 (via OR)',
             ],
         ],
 
@@ -785,6 +800,79 @@ class Squad extends WireData implements Module, ConfigurableModule {
             $this->logError("image() error: " . $e->getMessage());
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    /**
+     * Analyze local images or image data URLs with a multimodal chat model.
+     * Remote URLs are deliberately rejected; callers control acquisition and SSRF policy.
+     */
+    public function vision(string $prompt, array $images, array $options = []): array {
+        $prompt = trim($prompt);
+        if($prompt === '') return $this->errorResponse('Empty vision prompt.');
+        if(!$images) return $this->errorResponse('No vision images supplied.');
+        if(count($images) > self::MAX_VISION_IMAGES) return $this->errorResponse('Too many vision images.');
+
+        $normalized = [];
+        $total = 0;
+        foreach($images as $image) {
+            $dataUrl = $this->visionDataUrl((string)$image, $bytes, $error);
+            if($dataUrl === '') return $this->errorResponse($error ?: 'Invalid vision image.');
+            $total += $bytes;
+            if($total > self::MAX_VISION_TOTAL_BYTES) return $this->errorResponse('Vision images exceed the total byte limit.');
+            $normalized[] = $dataUrl;
+        }
+
+        $providerKey = $options['provider'] ?? $this->getDefaultProviderKey();
+        $provider = $this->getProvider($providerKey, $options['key'] ?? null, $options['keyIndex'] ?? null);
+        if(!$provider) return $this->errorResponse("No active provider found for '{$providerKey}'");
+        if(!empty($options['timeout'])) $provider->setTimeout((int)$options['timeout']);
+        $model = $options['model'] ?? $provider->getModel();
+
+        try {
+            $result = $provider->analyzeImages($prompt, $normalized, [
+                'model' => $model,
+                'systemPrompt' => $options['systemPrompt'] ?? $this->systemPrompt,
+                'maxTokens' => (int)($options['maxTokens'] ?? $this->maxTokens),
+                'temperature' => (float)($options['temperature'] ?? 0.2),
+                'detail' => $options['detail'] ?? 'high',
+            ]);
+            if(!empty($result['success'])) $this->log("Vision response from {$providerKey}/{$model}");
+            else $this->logError('vision() error: ' . ($result['message'] ?? 'unknown'));
+            return $result;
+        } catch(\Throwable $e) {
+            $this->logError('vision() error: ' . $e->getMessage());
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    protected function visionDataUrl(string $input, ?int &$bytes = null, ?string &$error = null): string {
+        $bytes = 0;
+        $error = '';
+        $mime = '';
+        $data = '';
+        if(str_starts_with($input, 'data:')) {
+            if(!preg_match('#^data:(image/(?:png|jpeg|webp|gif));base64,(.+)$#s', $input, $m)) {
+                $error = 'Vision data URL must be PNG, JPEG, WebP, or GIF.';
+                return '';
+            }
+            $mime = $m[1];
+            $data = base64_decode($m[2], true);
+            if(!is_string($data)) { $error = 'Vision image contains invalid base64 data.'; return ''; }
+        } else {
+            if($input === '' || !is_file($input) || !is_readable($input)) { $error = 'Vision image file is missing or unreadable.'; return ''; }
+            $size = @filesize($input);
+            if($size === false || $size <= 0 || $size > self::MAX_VISION_IMAGE_BYTES) { $error = 'Vision image file exceeds the byte limit.'; return ''; }
+            $info = @getimagesize($input);
+            $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
+            if(!in_array($mime, ['image/png', 'image/jpeg', 'image/webp', 'image/gif'], true)) { $error = 'Vision image must be PNG, JPEG, WebP, or GIF.'; return ''; }
+            $data = @file_get_contents($input);
+            if(!is_string($data)) { $error = 'Vision image could not be read.'; return ''; }
+        }
+        $bytes = strlen($data);
+        if($bytes < 1 || $bytes > self::MAX_VISION_IMAGE_BYTES) { $error = 'Vision image exceeds the byte limit.'; return ''; }
+        $decoded = @getimagesizefromstring($data);
+        if(!is_array($decoded) || (string)($decoded['mime'] ?? '') !== $mime) { $error = 'Vision image data is invalid or does not match its MIME type.'; return ''; }
+        return 'data:' . $mime . ';base64,' . base64_encode($data);
     }
 
     /**

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.0] — 2026-07-12
+
+- Refreshed the OpenRouter fallback catalog from the public OpenRouter model API, using `openrouter/auto` as the resilient default plus current provider aliases and named models.
+- Added OpenRouter's OpenAI-compatible embeddings endpoint and a fallback embedding-model catalog, allowing Atlas to use an existing OpenRouter key.
+- Added a provider-independent `vision()` API for bounded local PNG/JPEG/WebP/GIF inputs, with OpenAI-compatible and Anthropic multimodal request formats.
+
 All notable changes to the Squad module (formerly AiWire) are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semantic Versioning](https://semver.org/).

@@ -127,6 +127,60 @@ class SquadProvider {
         return $this->sendOpenAICompatible($message, $model, $systemPrompt, $maxTokens, $temperature, $history);
     }
 
+    /** Analyze one or more normalized data-URL images with a multimodal model. */
+    public function analyzeImages(string $prompt, array $images, array $options = []): array {
+        $model = (string)($options['model'] ?? $this->model);
+        $systemPrompt = (string)($options['systemPrompt'] ?? '');
+        $maxTokens = (int)($options['maxTokens'] ?? 3000);
+        $temperature = (float)($options['temperature'] ?? 0.2);
+
+        if($this->providerKey === 'anthropic') {
+            $content = [];
+            foreach($images as $image) {
+                if(!preg_match('#^data:(image/(?:png|jpeg|webp|gif));base64,(.+)$#s', $image, $m)) continue;
+                $content[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $m[1], 'data' => $m[2]]];
+            }
+            $content[] = ['type' => 'text', 'text' => $prompt];
+            $body = ['model' => $model, 'max_tokens' => $maxTokens, 'messages' => [['role' => 'user', 'content' => $content]]];
+            if($systemPrompt !== '') $body['system'] = $systemPrompt;
+            if($temperature > 0 && $this->anthropicAcceptsSampling($model)) $body['temperature'] = $temperature;
+            $headers = ['Content-Type: application/json', 'x-api-key: ' . $this->apiKey];
+            foreach($this->config['extraHeaders'] ?? [] as $k => $v) if($v !== '') $headers[] = "{$k}: {$v}";
+            $response = $this->curlRequest($this->config['url'], $body, $headers);
+            if(!$response['success']) return $response;
+            $data = $response['data'];
+            if(isset($data['error'])) return ['success' => false, 'content' => '', 'message' => $data['error']['message'] ?? 'API error', 'usage' => [], 'raw' => $data];
+            $text = '';
+            foreach($data['content'] ?? [] as $block) if(($block['type'] ?? '') === 'text') $text .= (string)($block['text'] ?? '');
+            return ['success' => true, 'content' => $text, 'message' => 'OK', 'usage' => $data['usage'] ?? [], 'raw' => $data];
+        }
+
+        $content = [['type' => 'text', 'text' => $prompt]];
+        foreach($images as $image) $content[] = ['type' => 'image_url', 'image_url' => ['url' => $image, 'detail' => $options['detail'] ?? 'high']];
+        $messages = [];
+        if($systemPrompt !== '') $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+        $messages[] = ['role' => 'user', 'content' => $content];
+        $body = ['model' => $model, 'temperature' => $temperature, 'messages' => $messages];
+        if($this->providerKey === 'openai') $body['max_completion_tokens'] = $maxTokens;
+        else $body['max_tokens'] = $maxTokens;
+        $headers = ['Content-Type: application/json', 'Authorization: Bearer ' . $this->apiKey];
+        foreach($this->config['extraHeaders'] ?? [] as $k => $v) if($v !== '') $headers[] = "{$k}: {$v}";
+        $response = $this->curlRequest($this->config['url'], $body, $headers);
+        if(!$response['success']) return $response;
+        $data = $response['data'];
+        if(isset($data['error'])) {
+            $message = is_array($data['error']) ? ($data['error']['message'] ?? 'API error') : (string)$data['error'];
+            return ['success' => false, 'content' => '', 'message' => $message, 'usage' => [], 'raw' => $data];
+        }
+        return [
+            'success' => true,
+            'content' => (string)($data['choices'][0]['message']['content'] ?? ''),
+            'message' => 'OK',
+            'usage' => $data['usage'] ?? [],
+            'raw' => $data,
+        ];
+    }
+
     /**
      * Send request to Anthropic Messages API
      */
