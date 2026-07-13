@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.6.0
+ * @version 1.6.1
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -21,6 +21,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public const MAX_VISION_IMAGES = 4;
     public const MAX_VISION_IMAGE_BYTES = 8 * 1024 * 1024;
     public const MAX_VISION_TOTAL_BYTES = 20 * 1024 * 1024;
+    public const MAX_VISION_IMAGE_DIMENSION = 12000;
+    public const MAX_VISION_IMAGE_PIXELS = 32000000;
 
     /**
      * Module information
@@ -28,7 +30,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.6.0',
+            'version'  => '1.6.1',
             'summary'  => __('AI integration for ProcessWire. Supports Anthropic, OpenAI, Google, xAI, and OpenRouter.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -865,6 +867,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
             $info = @getimagesize($input);
             $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
             if(!in_array($mime, ['image/png', 'image/jpeg', 'image/webp', 'image/gif'], true)) { $error = 'Vision image must be PNG, JPEG, WebP, or GIF.'; return ''; }
+            if(!$this->validVisionDimensions($info)) { $error = 'Vision image dimensions exceed the safety limit.'; return ''; }
             $data = @file_get_contents($input);
             if(!is_string($data)) { $error = 'Vision image could not be read.'; return ''; }
         }
@@ -872,7 +875,15 @@ class Squad extends WireData implements Module, ConfigurableModule {
         if($bytes < 1 || $bytes > self::MAX_VISION_IMAGE_BYTES) { $error = 'Vision image exceeds the byte limit.'; return ''; }
         $decoded = @getimagesizefromstring($data);
         if(!is_array($decoded) || (string)($decoded['mime'] ?? '') !== $mime) { $error = 'Vision image data is invalid or does not match its MIME type.'; return ''; }
+        if(!$this->validVisionDimensions($decoded)) { $error = 'Vision image dimensions exceed the safety limit.'; return ''; }
         return 'data:' . $mime . ';base64,' . base64_encode($data);
+    }
+
+    protected function validVisionDimensions(array $info): bool {
+        $width = (int)($info[0] ?? 0);
+        $height = (int)($info[1] ?? 0);
+        if($width < 1 || $height < 1 || $width > self::MAX_VISION_IMAGE_DIMENSION || $height > self::MAX_VISION_IMAGE_DIMENSION) return false;
+        return $width <= intdiv(self::MAX_VISION_IMAGE_PIXELS, $height);
     }
 
     /**

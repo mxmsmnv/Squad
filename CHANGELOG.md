@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.6.1] — 2026-07-12
+
+- Vision inputs now enforce 12,000 px per-side and 32 MP decoded-dimension caps in addition to byte limits.
+
 ## [1.6.0] — 2026-07-12
 
 - Refreshed the OpenRouter fallback catalog from the public OpenRouter model API, using `openrouter/auto` as the resilient default plus current provider aliases and named models.

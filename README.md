@@ -21,7 +21,7 @@ echo $ai->chat('Write a one-line tagline for a dentist in Boston.');
 - **Text** — `chat()` / `ask()` with system prompts, multi-turn history, temperature, token limits.
 - **Embeddings** — `embed()` for one string or a batch (OpenAI, Google, Qwen, Zhipu). Powers RAG (see the [Atlas](https://github.com/mxmsmnv/Atlas) module).
 - **Images** — `image()` for text-to-image (xAI Grok Imagine, OpenAI gpt-image-1 / DALL·E 3).
-- **Vision** — `vision()` analyzes up to four bounded local images through multimodal Anthropic or OpenAI-compatible models.
+- **Vision** — `vision()` analyzes up to four bounded local images through multimodal Anthropic or OpenAI-compatible models (8 MB/image, 20 MB total, 12,000 px/side, 32 MP).
 - **Tool use / agents** — `run()` drives a multi-step tool-calling loop (OpenAI **and** Anthropic tool formats).
 - **Automatic fallback** — `askWithFallback()` walks every enabled key, then other providers, until one succeeds.
 - **Multiple keys per provider** — enable/disable, default-key selection, one-click connection test in admin.
