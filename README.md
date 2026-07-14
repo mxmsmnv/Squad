@@ -31,6 +31,7 @@ echo $ai->chat('Write a one-line tagline for a dentist in Boston.');
 - **File cache** — TTL-based response caching (`D`/`W`/`M`/`Y`, custom like `2W`) with optional page scoping.
 - **Field storage** — `askAndSave()` / `generate()` write AI copy straight to page fields (skip if already filled).
 - **Editable model catalog** — `models.json` + live model refresh (OpenAI/OpenRouter) + per-key custom model IDs.
+- **Native settings UI** — responsive AdminThemeUikit/Konkat controls based on [pw-design-system](https://github.com/mxmsmnv/pw-design-system), including light/dark theme support and provider filtering.
 
 ---
 

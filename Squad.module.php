@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.6.1
+ * @version 1.7.0
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -30,7 +30,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.6.1',
+            'version'  => '1.7.0',
             'summary'  => __('AI integration for ProcessWire. Supports Anthropic, OpenAI, Google, xAI, and OpenRouter.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -1838,6 +1838,11 @@ class Squad extends WireData implements Module, ConfigurableModule {
         $modules = $this->wire('modules');
         $providerDefinitions = $this->getProviderDefinitions();
 
+        // UIkit-native, theme-aware enhancements based on pw-design-system.
+        $this->wire('config')->styles->add(
+            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.7.0'
+        );
+
         // Sweep any plaintext keys left in the config field into the encrypted
         // table (no-op once clean), so the form always edits from encrypted store.
         $this->migrateKeysToTable();
@@ -2072,156 +2077,38 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         $html = <<<HTML
 <div id="squad-keys-app" data-providers='{$providersJson}' data-saved='{$savedKeysJson}' data-url='{$moduleUrlAttr}'>
-    <style>
-        #squad-keys-app { margin: 10px 0; }
-        .squad-provider-section {
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            overflow: hidden;
-        }
-        .squad-provider-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 16px;
-            background: #fff;
-            border-bottom: 1px solid #ddd;
-            cursor: pointer;
-            user-select: none;
-        }
-        .squad-provider-header:hover { background: #f5f5f5; }
-        .squad-provider-header h4 {
-            margin: 0;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .squad-provider-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-weight: normal;
-        }
-        .squad-badge-active { background: #d4edda; color: #155724; }
-        .squad-badge-inactive { background: #f8d7da; color: #721c24; }
-        .squad-badge-nokeys { background: #e2e3e5; color: #383d41; }
-        .squad-provider-body { padding: 16px; }
-        .squad-provider-body.collapsed { display: none; }
-        .squad-key-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 5px;
-            margin-bottom: 8px;
-        }
-        .squad-key-row:hover { border-color: #999; }
-        .squad-key-input {
-            flex: 2;
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 13px;
-        }
-        .squad-label-input {
-            flex: 1;
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .squad-custom-model-input {
-            flex: 1;
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 13px;
-        }
-        .squad-model-select {
-            flex: 1;
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .squad-status-icon {
-            width: 24px;
-            text-align: center;
-            font-size: 16px;
-        }
-        .squad-status-ok { color: #28a745; }
-        .squad-status-fail { color: #dc3545; }
-        .squad-status-unknown { color: #6c757d; }
-        .squad-status-testing { color: #ffc107; }
-        .squad-key-actions {
-            display: flex;
-            gap: 4px;
-        }
-        .squad-btn {
-            padding: 5px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
-            cursor: pointer;
-            font-size: 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .squad-btn:hover { background: #f0f0f0; border-color: #999; }
-        .squad-btn-primary { background: #2196F3; color: #fff; border-color: #1976D2; }
-        .squad-btn-primary:hover { background: #1976D2; }
-        .squad-btn-danger { color: #dc3545; }
-        .squad-btn-danger:hover { background: #dc3545; color: #fff; border-color: #dc3545; }
-        .squad-btn-success { background: #28a745; color: #fff; border-color: #218838; }
-        .squad-btn-success:hover { background: #218838; }
-        .squad-add-key-row {
-            padding: 8px 0;
-        }
-        .squad-enabled-toggle {
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .squad-save-bar {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-top: 15px;
-            padding: 12px 16px;
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 6px;
-        }
-        .squad-save-bar.hidden { display: none; }
-        .squad-save-bar.saved {
-            background: #d4edda;
-            border-color: #28a745;
-        }
-        .squad-docs-link {
-            font-size: 12px;
-            color: #666;
-            text-decoration: none;
-        }
-        .squad-docs-link:hover { color: #2196F3; }
-    </style>
+
+    <div id="squad-overview" class="squad-overview" aria-label="Provider overview"></div>
+
+    <div class="uk-alert uk-alert-primary" role="note">
+        <p><i class="fa fa-shield uk-margin-small-right" aria-hidden="true"></i><strong>Keys are encrypted at rest.</strong> You may also use <code>env:VARIABLE_NAME</code> so the secret never enters the database.</p>
+    </div>
+
+    <div class="squad-toolbar">
+        <label class="squad-search-wrap">
+            <span class="uk-hidden">Search providers</span>
+            <i class="fa fa-search" aria-hidden="true"></i>
+            <input id="squad-provider-search" class="uk-input" type="search" placeholder="Search providers…" oninput="SquadApp.setSearch(this.value)" />
+        </label>
+        <ul class="uk-subnav uk-subnav-pill uk-margin-remove" aria-label="Filter providers">
+            <li class="uk-active" data-squad-filter="all"><button type="button" class="uk-button uk-button-text" onclick="SquadApp.setFilter('all')">All</button></li>
+            <li data-squad-filter="configured"><button type="button" class="uk-button uk-button-text" onclick="SquadApp.setFilter('configured')">Configured</button></li>
+            <li data-squad-filter="active"><button type="button" class="uk-button uk-button-text" onclick="SquadApp.setFilter('active')">Active</button></li>
+        </ul>
+    </div>
 
     <div id="squad-providers-container"></div>
 
+    <div id="squad-no-results" class="squad-no-results" hidden>
+        <i class="fa fa-search fa-2x uk-margin-small-bottom" aria-hidden="true"></i>
+        <div>No providers match this filter.</div>
+    </div>
+
     <div id="squad-save-bar" class="squad-save-bar hidden">
-        <button type="button" id="squad-save-btn" class="squad-btn squad-btn-success" onclick="SquadApp.saveAll()">
+        <span><i class="fa fa-exclamation-circle uk-margin-small-right" aria-hidden="true"></i><span id="squad-save-status">Unsaved changes</span></span>
+        <button type="button" id="squad-save-btn" class="uk-button uk-button-primary" onclick="SquadApp.saveAll()">
             <i class="fa fa-save"></i> Save All Keys
         </button>
-        <span id="squad-save-status"></span>
     </div>
 
     <script>
@@ -2231,7 +2118,10 @@ class Squad extends WireData implements Module, ConfigurableModule {
         var container, providers, savedKeys, moduleUrl;
         var csrfFields = {$csrfFieldsJson};
         var currentKeys = {};
+        var expandedProviders = {};
         var dirty = false;
+        var searchQuery = '';
+        var providerFilter = 'all';
 
         function init() {
             var app = document.getElementById('squad-keys-app');
@@ -2245,9 +2135,16 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 currentKeys[pk] = (savedKeys[pk] || []).map(function(k) {
                     return Object.assign({}, k);
                 });
+                expandedProviders[pk] = currentKeys[pk].length > 0;
             }
 
             render();
+
+            window.addEventListener('beforeunload', function(event) {
+                if (!dirty) return;
+                event.preventDefault();
+                event.returnValue = '';
+            });
         }
 
         function render() {
@@ -2256,6 +2153,55 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 html += renderProvider(pk, providers[pk]);
             }
             container.innerHTML = html;
+            renderOverview();
+            applyFilters();
+        }
+
+        function renderOverview() {
+            var providerCount = Object.keys(providers).length;
+            var configuredCount = 0;
+            var activeKeyCount = 0;
+            for (var pk in currentKeys) {
+                var keys = currentKeys[pk] || [];
+                if (keys.length) configuredCount++;
+                activeKeyCount += keys.filter(function(key) { return key.enabled && key.key; }).length;
+            }
+            document.getElementById('squad-overview').innerHTML =
+                '<div class="squad-overview-item"><span class="uk-text-meta">Providers</span><strong class="squad-overview-value">' + providerCount + '</strong></div>' +
+                '<div class="squad-overview-item"><span class="uk-text-meta">Configured</span><strong class="squad-overview-value">' + configuredCount + '</strong></div>' +
+                '<div class="squad-overview-item"><span class="uk-text-meta">Active keys</span><strong class="squad-overview-value">' + activeKeyCount + '</strong></div>';
+        }
+
+        function applyFilters() {
+            var visible = 0;
+            var sections = container.querySelectorAll('.squad-provider-section');
+            Array.prototype.forEach.call(sections, function(section) {
+                var pk = section.getAttribute('data-provider');
+                var keys = currentKeys[pk] || [];
+                var active = keys.some(function(key) { return key.enabled && key.key; });
+                var matchesStatus = providerFilter === 'all' ||
+                    (providerFilter === 'configured' && keys.length > 0) ||
+                    (providerFilter === 'active' && active);
+                var label = (providers[pk].label + ' ' + pk).toLowerCase();
+                var matchesSearch = !searchQuery || label.indexOf(searchQuery) !== -1;
+                section.hidden = !(matchesStatus && matchesSearch);
+                if (!section.hidden) visible++;
+            });
+            document.getElementById('squad-no-results').hidden = visible !== 0;
+        }
+
+        function setSearch(value) {
+            searchQuery = (value || '').trim().toLowerCase();
+            applyFilters();
+        }
+
+        function setFilter(value) {
+            providerFilter = value;
+            var items = document.querySelectorAll('[data-squad-filter]');
+            Array.prototype.forEach.call(items, function(item) {
+                item.classList.toggle('uk-active', item.getAttribute('data-squad-filter') === value);
+            });
+            applyFilters();
         }
 
         function renderProvider(pk, config) {
@@ -2264,21 +2210,25 @@ class Squad extends WireData implements Module, ConfigurableModule {
             var badge = '';
 
             if (keys.length === 0) {
-                badge = '<span class="squad-provider-badge squad-badge-nokeys">No keys</span>';
+                badge = '<span class="uk-label">No keys</span>';
             } else if (activeCount > 0) {
-                badge = '<span class="squad-provider-badge squad-badge-active"><i class="fa fa-check"></i> ' + activeCount + ' active</span>';
+                badge = '<span class="uk-label uk-label-success"><i class="fa fa-check"></i> ' + activeCount + ' active</span>';
             } else {
-                badge = '<span class="squad-provider-badge squad-badge-inactive"><i class="fa fa-times"></i> Disabled</span>';
+                badge = '<span class="uk-label uk-label-warning">Disabled</span>';
             }
 
-            var collapsed = keys.length === 0 ? '' : ' collapsed';
+            var collapsed = expandedProviders[pk] ? '' : ' collapsed';
+            var expanded = collapsed ? 'false' : 'true';
 
             var html = '<div class="squad-provider-section" data-provider="' + pk + '">';
-            html += '<div class="squad-provider-header" onclick="SquadApp.toggleProvider(\'' + pk + '\')">';
-            html += '  <h4><i class="fa fa-' + escAttr(config.icon) + '"></i> ' + escHtml(config.label) + ' ' + badge + '</h4>';
-            html += '  <div><a href="' + escAttr(config.docsUrl) + '" target="_blank" class="squad-docs-link" onclick="event.stopPropagation()"><i class="fa fa-external-link"></i> Docs</a></div>';
+            html += '<div class="squad-provider-header-row">';
+            html += '<button type="button" class="squad-provider-header" aria-expanded="' + expanded + '" aria-controls="squad-body-' + pk + '" onclick="SquadApp.toggleProvider(\'' + pk + '\', this)">';
+            html += '  <span class="squad-provider-title"><i class="fa fa-' + escAttr(config.icon) + '" aria-hidden="true"></i> ' + escHtml(config.label) + '</span>';
+            html += '  <span class="squad-provider-meta">' + badge + '<i class="fa fa-angle-down squad-provider-chevron" aria-hidden="true"></i></span>';
+            html += '</button>';
+            html += '<a href="' + escAttr(config.docsUrl) + '" target="_blank" rel="noopener noreferrer" class="squad-docs-link"><i class="fa fa-external-link uk-margin-small-right" aria-hidden="true"></i> Docs</a>';
             html += '</div>';
-            html += '<div class="squad-provider-body' + collapsed + '" id="squad-body-' + pk + '">';
+            html += '<div class="squad-provider-body' + collapsed + '" id="squad-body-' + pk + '" role="region" aria-label="' + escAttr(config.label) + ' keys">';
 
             // Render key rows
             for (var i = 0; i < keys.length; i++) {
@@ -2287,7 +2237,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
             // Add key button
             html += '<div class="squad-add-key-row">';
-            html += '  <button type="button" class="squad-btn" onclick="SquadApp.addKey(\'' + pk + '\')">';
+            html += keys.length ? '' : '<p class="squad-empty-provider">No API keys configured yet.</p>';
+            html += '  <button type="button" class="uk-button uk-button-default uk-button-small" onclick="SquadApp.addKey(\'' + pk + '\')">';
             html += '    <i class="fa fa-plus"></i> Add API Key';
             html += '  </button>';
             html += '</div>';
@@ -2330,33 +2281,29 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 modelOptions = '<option value="' + escAttr(selectedModel) + '" selected>' + escHtml(selectedModel) + '</option>' + modelOptions;
             }
 
-            var maskedKey = maskKey(keyData.key);
             var refreshButton = '';
             if (config.canRefreshModels) {
-                refreshButton = '<button type="button" class="squad-btn" title="Refresh models" onclick="SquadApp.refreshModels(\'' + pk + '\',' + index + ')"><i class="fa fa-refresh"></i></button>';
+                refreshButton = '<button type="button" class="uk-button uk-button-default uk-button-small" title="Refresh models" aria-label="Refresh models" onclick="SquadApp.refreshModels(\'' + pk + '\',' + index + ')"><i class="fa fa-refresh"></i></button>';
             }
 
             var html = '<div class="squad-key-row" id="squad-row-' + pk + '-' + index + '">';
-            html += '<span class="squad-enabled-toggle" title="' + enabledTitle + '" onclick="SquadApp.toggleEnabled(\'' + pk + '\',' + index + ')">';
+            html += '<div class="squad-key-state">';
+            html += '<button type="button" class="squad-enabled-toggle" title="' + enabledTitle + '" aria-pressed="' + (keyData.enabled ? 'true' : 'false') + '" onclick="SquadApp.toggleEnabled(\'' + pk + '\',' + index + ')">';
             html += '  <i class="fa ' + enabledIcon + '"></i>';
-            html += '</span>';
-            html += '<span class="squad-status-icon ' + statusClass + '" title="' + statusTitle + '"><i class="fa ' + statusIcon + '"></i></span>';
-            html += '<input type="text" class="squad-label-input" placeholder="Label (optional)" value="' + escHtml(keyData.label || '') + '" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'label\',this.value)" />';
-            html += '<input type="password" class="squad-key-input" placeholder="API Key" value="' + escHtml(keyData.key) + '" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'key\',this.value)" />';
-            html += '<select class="squad-model-select" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'model\',this.value)">' + modelOptions + '</select>';
-            html += '<input type="text" class="squad-custom-model-input" placeholder="Custom model (optional)" value="' + escHtml(keyData.custom_model || '') + '" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'custom_model\',this.value)" />';
+            html += '  <span>' + (keyData.enabled ? 'Enabled' : 'Disabled') + '</span></button>';
+            html += '<span class="squad-status-icon ' + statusClass + '" title="' + statusTitle + '"><i class="fa ' + statusIcon + '"></i> ' + statusTitle + '</span>';
+            html += '</div>';
+            html += '<label class="squad-key-field"><span class="squad-key-field-label">Label</span><input type="text" class="uk-input squad-label-input" placeholder="Production, staging…" value="' + escAttr(keyData.label || '') + '" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'label\',this.value)" /></label>';
+            html += '<label class="squad-key-field"><span class="squad-key-field-label">API key or env:NAME</span><span class="squad-key-input-wrap"><input type="password" autocomplete="new-password" spellcheck="false" class="uk-input squad-key-input" placeholder="' + escAttr(config.keyPrefix || '') + '… or env:VARIABLE" value="' + escAttr(keyData.key || '') + '" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'key\',this.value)" /><button type="button" class="squad-reveal-key" aria-label="Show API key" onclick="SquadApp.toggleKeyVisibility(this)"><i class="fa fa-eye" aria-hidden="true"></i></button></span></label>';
+            html += '<label class="squad-key-field"><span class="squad-key-field-label">Model</span><select class="uk-select squad-model-select" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'model\',this.value)">' + modelOptions + '</select></label>';
+            html += '<label class="squad-key-field"><span class="squad-key-field-label">Custom model</span><input type="text" class="uk-input squad-custom-model-input" placeholder="Optional model ID" value="' + escAttr(keyData.custom_model || '') + '" onchange="SquadApp.updateKey(\'' + pk + '\',' + index + ',\'custom_model\',this.value)" /></label>';
             html += '<div class="squad-key-actions">';
             html += refreshButton;
-            html += '  <button type="button" class="squad-btn" title="Test this key" onclick="SquadApp.testKey(\'' + pk + '\',' + index + ')"><i class="fa fa-plug"></i></button>';
-            html += '  <button type="button" class="squad-btn squad-btn-danger" title="Remove" onclick="SquadApp.removeKey(\'' + pk + '\',' + index + ')"><i class="fa fa-trash"></i></button>';
+            html += '  <button type="button" class="uk-button uk-button-default uk-button-small" title="Test connection" aria-label="Test connection" onclick="SquadApp.testKey(\'' + pk + '\',' + index + ')"><i class="fa fa-plug"></i></button>';
+            html += '  <button type="button" class="uk-button uk-button-danger uk-button-small" title="Remove key" aria-label="Remove key" onclick="SquadApp.removeKey(\'' + pk + '\',' + index + ')"><i class="fa fa-trash"></i></button>';
             html += '</div>';
             html += '</div>';
             return html;
-        }
-
-        function maskKey(key) {
-            if (!key || key.length < 12) return key;
-            return key.substring(0, 8) + '...' + key.substring(key.length - 4);
         }
 
         function escHtml(str) {
@@ -2369,9 +2316,22 @@ class Squad extends WireData implements Module, ConfigurableModule {
             return escHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
-        function toggleProvider(pk) {
+        function toggleProvider(pk, trigger) {
             var body = document.getElementById('squad-body-' + pk);
-            if (body) body.classList.toggle('collapsed');
+            if (body) {
+                body.classList.toggle('collapsed');
+                expandedProviders[pk] = !body.classList.contains('collapsed');
+                if (trigger) trigger.setAttribute('aria-expanded', body.classList.contains('collapsed') ? 'false' : 'true');
+            }
+        }
+
+        function toggleKeyVisibility(button) {
+            var input = button.parentNode.querySelector('input');
+            if (!input) return;
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            button.setAttribute('aria-label', show ? 'Hide API key' : 'Show API key');
+            button.querySelector('i').className = 'fa ' + (show ? 'fa-eye-slash' : 'fa-eye');
         }
 
         function addKey(pk) {
@@ -2384,12 +2344,9 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 enabled: true,
                 status: 'unknown'
             });
+            expandedProviders[pk] = true;
             setDirty();
             render();
-
-            // Expand the section
-            var body = document.getElementById('squad-body-' + pk);
-            if (body) body.classList.remove('collapsed');
 
             // Focus the new key input
             var rows = document.querySelectorAll('[id^="squad-row-' + pk + '-"]');
@@ -2446,6 +2403,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
             })
             .done(function(response) {
                 keyData.status = response.success ? 'ok' : 'fail';
+                setDirty();
                 if (!response.success && response.message) {
                     alert(providers[pk].label + ': ' + response.message);
                 }
@@ -2453,6 +2411,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
             })
             .fail(function(xhr, status) {
                 keyData.status = 'fail';
+                setDirty();
                 render();
                 alert('Connection test failed: ' + status);
             });
@@ -2544,7 +2503,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
                     dirty = false;
                     var bar = document.getElementById('squad-save-bar');
                     bar.classList.add('saved');
-                    status.textContent = 'Saved!';
+                    status.textContent = 'All provider keys saved';
                     syncHiddenField();
                 } else {
                     status.textContent = 'Error: ' + response.message;
@@ -2568,6 +2527,9 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         return {
             toggleProvider: toggleProvider,
+            toggleKeyVisibility: toggleKeyVisibility,
+            setSearch: setSearch,
+            setFilter: setFilter,
             addKey: addKey,
             removeKey: removeKey,
             updateKey: updateKey,
@@ -2630,43 +2592,38 @@ HTML;
         $defaultKeyJson = $this->_keyOptionsJson ?? '{}';
 
         return <<<HTML
-<div id="squad-test-chat" style="margin: 10px 0;">
-    <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
-        <select id="squad-test-provider" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; min-width: 160px;" onchange="SquadTestUpdateSelects()">
+<div id="squad-test-chat">
+    <div class="squad-test-selects">
+        <select id="squad-test-provider" class="uk-select" aria-label="Provider" onchange="SquadTestUpdateSelects()">
         </select>
-        <select id="squad-test-key" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; min-width: 200px;" onchange="SquadTestUpdateModel()">
+        <select id="squad-test-key" class="uk-select" aria-label="API key" onchange="SquadTestUpdateModel()">
         </select>
-        <select id="squad-test-model" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; min-width: 200px;">
+        <select id="squad-test-model" class="uk-select" aria-label="Model">
         </select>
     </div>
-    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-        <input type="text" id="squad-test-message" placeholder="Type a test message..." 
-               value="What is the safest city in the United States and why?" 
-               style="flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px;" />
-        <button type="button" class="squad-btn squad-btn-primary" id="squad-test-send-btn" onclick="SquadTestChat()">
+    <div class="squad-test-message-row">
+        <input type="text" class="uk-input" id="squad-test-message" aria-label="Test message" placeholder="Type a test message..."
+               value="What is the safest city in the United States and why?" />
+        <button type="button" class="uk-button uk-button-primary" id="squad-test-send-btn" onclick="SquadTestChat()">
             <i class="fa fa-paper-plane"></i> Send
         </button>
     </div>
-    <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center;">
-        <label style="font-size: 12px; color: #666;">
+    <div class="squad-test-options">
+        <label>
             Temperature
-            <input type="number" id="squad-test-temperature" value="1" min="0" max="2" step="0.1"
-                   style="width: 60px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;" />
+            <input type="number" class="uk-input" id="squad-test-temperature" value="1" min="0" max="2" step="0.1" />
         </label>
-        <label style="font-size: 12px; color: #666;">
+        <label>
             Max Tokens
-            <input type="number" id="squad-test-tokens" value="1024" min="1" max="32000" step="1"
-                   style="width: 75px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;" />
+            <input type="number" class="uk-input" id="squad-test-tokens" value="1024" min="1" max="32000" step="1" />
         </label>
-        <label style="font-size: 12px; color: #666;">
-            Timeout
-            <input type="number" id="squad-test-timeout" value="30" min="5" max="300" step="1"
-                   style="width: 55px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;" />
-            <span style="font-size: 11px;">sec</span>
+        <label>
+            Timeout (seconds)
+            <input type="number" class="uk-input" id="squad-test-timeout" value="30" min="5" max="300" step="1" />
         </label>
     </div>
-    <div id="squad-test-response" style="display:none; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; white-space: pre-wrap; font-size: 13px;"></div>
-    <div id="squad-test-cache-badge" style="display:none; margin-top: 8px; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 600; width: fit-content;"></div>
+    <div id="squad-test-response" class="uk-alert squad-test-response" role="status" aria-live="polite" hidden></div>
+    <div id="squad-test-cache-badge" class="uk-label uk-margin-small-top" hidden></div>
 </div>
 <script>
 var _squadTestData = {$providerKeysJson};
@@ -2748,20 +2705,18 @@ function SquadTestChat() {
     var badgeEl = document.getElementById('squad-test-cache-badge');
     var btn = document.getElementById('squad-test-send-btn');
 
-    badgeEl.style.display = 'none';
+    badgeEl.hidden = true;
 
     if (!keyIndex && keyIndex !== '0') {
-        resultEl.style.display = 'block';
-        resultEl.style.background = '#f8d7da';
-        resultEl.style.borderColor = '#dc3545';
+        resultEl.hidden = false;
+        resultEl.className = 'uk-alert squad-test-response is-error';
         resultEl.textContent = 'No active key for this provider. Add and enable a key first.';
         return;
     }
 
-    resultEl.style.display = 'block';
+    resultEl.hidden = false;
+    resultEl.className = 'uk-alert squad-test-response is-loading';
     resultEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Waiting for response...';
-    resultEl.style.background = '#fff3cd';
-    resultEl.style.borderColor = '#ffc107';
     btn.disabled = true;
 
     var startTime = Date.now();
@@ -2786,8 +2741,7 @@ function SquadTestChat() {
     .done(function(r) {
         var elapsed = Date.now() - startTime;
         if (r.success) {
-            resultEl.style.background = '#d4edda';
-            resultEl.style.borderColor = '#28a745';
+            resultEl.className = 'uk-alert squad-test-response is-success';
             var info = '\\n\\n--- ';
             if (r.usage && r.usage.total_tokens) info += 'tokens: ' + r.usage.total_tokens + ' | ';
             info += elapsed + 'ms ---';
@@ -2795,24 +2749,20 @@ function SquadTestChat() {
 
             if (r.cached) {
                 badgeEl.textContent = '⚡ FROM CACHE (' + elapsed + 'ms)';
-                badgeEl.style.background = '#d4edda';
-                badgeEl.style.color = '#155724';
-                badgeEl.style.display = 'inline-block';
+                badgeEl.className = 'uk-label uk-label-success uk-margin-small-top';
+                badgeEl.hidden = false;
             } else if (r.cache_saved) {
                 badgeEl.textContent = '💾 SAVED TO CACHE';
-                badgeEl.style.background = '#cce5ff';
-                badgeEl.style.color = '#004085';
-                badgeEl.style.display = 'inline-block';
+                badgeEl.className = 'uk-label uk-margin-small-top';
+                badgeEl.hidden = false;
             }
         } else {
-            resultEl.style.background = '#f8d7da';
-            resultEl.style.borderColor = '#dc3545';
+            resultEl.className = 'uk-alert squad-test-response is-error';
             resultEl.textContent = 'Error: ' + (r.message || 'Unknown error');
         }
     })
     .fail(function(xhr, status) {
-        resultEl.style.background = '#f8d7da';
-        resultEl.style.borderColor = '#dc3545';
+        resultEl.className = 'uk-alert squad-test-response is-error';
         resultEl.textContent = 'Request failed: ' + status;
     })
     .always(function() {
@@ -2854,18 +2804,23 @@ HTML;
         $sizeFormatted = $this->formatBytes($stats['total_size']);
 
         return <<<HTML
-<div style="margin: 10px 0;">
-    <table class="AdminDataTable" style="width: auto;">
+<div id="squad-cache-panel">
+    <div class="uk-overflow-auto">
+    <table class="uk-table uk-table-divider uk-table-small uk-table-justify">
+        <thead><tr><th>Metric</th><th class="uk-text-right">Value</th></tr></thead>
+        <tbody>
         <tr><td><strong>Cached responses</strong></td><td>{$stats['total_files']}</td></tr>
         <tr><td><strong>Cache size</strong></td><td>{$sizeFormatted}</td></tr>
         <tr><td><strong>Pages with cache</strong></td><td>{$stats['pages']}</td></tr>
         <tr><td><strong>Expired (pending cleanup)</strong></td><td>{$stats['expired']}</td></tr>
+        </tbody>
     </table>
-    <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
-        <button type="button" class="squad-btn squad-btn-danger" id="squad-clear-cache-btn" onclick="SquadClearCache()">
+    </div>
+    <div class="squad-cache-actions">
+        <button type="button" class="uk-button uk-button-danger" id="squad-clear-cache-btn" onclick="SquadClearCache()">
             <i class="fa fa-trash"></i> Clear All Cache
         </button>
-        <span id="squad-cache-status" style="font-size: 13px;"></span>
+        <span id="squad-cache-status" class="uk-text-small" role="status" aria-live="polite"></span>
     </div>
 </div>
 <script>
@@ -2886,9 +2841,9 @@ function SquadClearCache() {
     })
     .done(function(r) {
         status.textContent = r.message || 'Done';
-        status.style.color = r.success ? '#28a745' : '#dc3545';
+        status.className = 'uk-text-small ' + (r.success ? 'squad-status-ok' : 'squad-status-fail');
     })
-    .fail(function() { status.textContent = 'Failed'; status.style.color = '#dc3545'; })
+    .fail(function() { status.textContent = 'Failed'; status.className = 'uk-text-small squad-status-fail'; })
     .always(function() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa fa-trash"></i> Clear All Cache';

@@ -1,0 +1,318 @@
+/* Squad module settings — ProcessWire/AdminThemeUikit + pw-design-system. */
+#squad-keys-app,
+#squad-test-chat,
+#squad-cache-panel {
+    color: var(--pw-text-color, inherit);
+}
+
+#squad-keys-app .squad-overview {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid var(--pw-border-color, #d9d9d9);
+    border-radius: var(--pw-input-radius, 3px);
+    background: var(--pw-border-color, #d9d9d9);
+}
+
+#squad-keys-app .squad-overview-item {
+    padding: 14px 16px;
+    background: var(--pw-main-background, #fff);
+}
+
+#squad-keys-app .squad-overview-value {
+    display: block;
+    margin-top: 3px;
+    font-size: 1.35rem;
+    line-height: 1.2;
+    font-weight: 600;
+}
+
+#squad-keys-app .squad-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+#squad-keys-app .squad-search-wrap {
+    position: relative;
+    flex: 1 1 280px;
+    max-width: 440px;
+}
+
+#squad-keys-app .squad-search-wrap .fa-search {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    color: var(--pw-muted-color, #777);
+    pointer-events: none;
+}
+
+#squad-keys-app .squad-search-wrap .uk-input {
+    padding-left: 36px;
+}
+
+#squad-keys-app .squad-provider-section {
+    margin-bottom: 10px;
+    border: 1px solid var(--pw-border-color, #d9d9d9);
+    border-radius: var(--pw-input-radius, 3px);
+    background: var(--pw-main-background, #fff);
+    overflow: hidden;
+}
+
+#squad-keys-app .squad-provider-section[hidden] {
+    display: none;
+}
+
+#squad-keys-app .squad-provider-header {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 15px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+#squad-keys-app .squad-provider-header-row {
+    display: flex;
+    align-items: stretch;
+}
+
+#squad-keys-app .squad-provider-header-row .squad-provider-header {
+    flex: 1 1 auto;
+}
+
+#squad-keys-app .squad-docs-link {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0 15px;
+    border-left: 1px solid var(--pw-border-color, #d9d9d9);
+    color: var(--pw-muted-color, #777);
+    font-size: 12px;
+}
+
+#squad-keys-app .squad-provider-header:hover,
+#squad-keys-app .squad-provider-header:focus-visible {
+    background: var(--pw-menu-item-background-hover, var(--pw-blocks-background, #f5f5f5));
+    outline: none;
+}
+
+#squad-keys-app .squad-provider-title,
+#squad-keys-app .squad-provider-meta,
+#squad-keys-app .squad-key-actions,
+#squad-keys-app .squad-save-bar {
+    display: flex;
+    align-items: center;
+}
+
+#squad-keys-app .squad-provider-title {
+    min-width: 0;
+    gap: 9px;
+    font-weight: 600;
+}
+
+#squad-keys-app .squad-provider-meta {
+    flex: 0 0 auto;
+    gap: 10px;
+}
+
+#squad-keys-app .squad-provider-chevron {
+    transition: transform 150ms ease;
+}
+
+#squad-keys-app .squad-provider-header[aria-expanded="true"] .squad-provider-chevron {
+    transform: rotate(180deg);
+}
+
+#squad-keys-app .squad-provider-body {
+    padding: 15px;
+    border-top: 1px solid var(--pw-border-color, #d9d9d9);
+    background: var(--pw-blocks-background, transparent);
+}
+
+#squad-keys-app .squad-provider-body.collapsed {
+    display: none;
+}
+
+#squad-keys-app .squad-key-row {
+    display: grid;
+    grid-template-columns: minmax(130px, .75fr) minmax(220px, 1.5fr) minmax(170px, 1fr) minmax(160px, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 10px;
+    padding: 13px;
+    border: 1px solid var(--pw-border-color, #d9d9d9);
+    border-radius: var(--pw-input-radius, 3px);
+    background: var(--pw-main-background, #fff);
+}
+
+#squad-keys-app .squad-key-field {
+    min-width: 0;
+}
+
+#squad-keys-app .squad-key-field-label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--pw-muted-color, #777);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
+#squad-keys-app .squad-key-input-wrap {
+    position: relative;
+}
+
+#squad-keys-app .squad-key-input-wrap .uk-input {
+    padding-right: 36px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+#squad-keys-app .squad-reveal-key {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    padding: 6px 8px;
+    border: 0;
+    background: transparent;
+    color: var(--pw-muted-color, #777);
+    cursor: pointer;
+}
+
+#squad-keys-app .squad-custom-model-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+#squad-keys-app .squad-key-actions {
+    gap: 4px;
+    align-self: end;
+}
+
+#squad-keys-app .squad-key-state {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    grid-column: 1 / -1;
+    padding-bottom: 2px;
+}
+
+#squad-keys-app .squad-enabled-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+#squad-keys-app .squad-status-ok { color: var(--pw-main-color, #2e7d32); }
+#squad-keys-app .squad-status-fail { color: var(--pw-error-inline-text-color, #c62828); }
+#squad-keys-app .squad-status-unknown { color: var(--pw-muted-color, #777); }
+#squad-keys-app .squad-status-testing { color: var(--pw-alert-warning, #b26a00); }
+
+#squad-keys-app .squad-add-key-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+#squad-keys-app .squad-empty-provider {
+    margin: 0;
+    color: var(--pw-muted-color, #777);
+}
+
+#squad-keys-app .squad-save-bar {
+    position: sticky;
+    z-index: 20;
+    bottom: 12px;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 15px;
+    padding: 12px 14px;
+    border: 1px solid var(--pw-border-color, #d9d9d9);
+    border-radius: var(--pw-input-radius, 3px);
+    background: var(--pw-notes-background, #fff8dc);
+}
+
+#squad-keys-app .squad-save-bar.hidden { display: none; }
+#squad-keys-app .squad-save-bar.saved { background: var(--pw-alert-success, #e7f5e7); }
+
+#squad-keys-app .squad-no-results {
+    padding: 30px 20px;
+    border: 1px dashed var(--pw-border-color, #d9d9d9);
+    color: var(--pw-muted-color, #777);
+    text-align: center;
+}
+
+#squad-test-chat .squad-test-selects,
+#squad-test-chat .squad-test-message-row,
+#squad-test-chat .squad-test-options {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+#squad-test-chat .squad-test-selects { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#squad-test-chat .squad-test-message-row { grid-template-columns: minmax(0, 1fr) auto; }
+#squad-test-chat .squad-test-options { grid-template-columns: repeat(3, minmax(120px, 180px)); }
+#squad-test-chat .squad-test-options label { color: var(--pw-muted-color, #777); font-size: 12px; }
+#squad-test-chat .squad-test-options .uk-input { margin-top: 5px; }
+#squad-test-chat .squad-test-response { white-space: pre-wrap; overflow-wrap: anywhere; }
+#squad-test-chat .squad-test-response.is-loading { background: var(--pw-alert-warning, #fff8dc); }
+#squad-test-chat .squad-test-response.is-success { background: var(--pw-alert-success, #e7f5e7); }
+#squad-test-chat .squad-test-response.is-error { background: var(--pw-alert-danger, #fbe9e9); }
+
+#squad-cache-panel .squad-cache-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+#squad-cache-panel .squad-status-ok { color: var(--pw-main-color, #2e7d32); }
+#squad-cache-panel .squad-status-fail { color: var(--pw-error-inline-text-color, #c62828); }
+
+@media (max-width: 1200px) {
+    #squad-keys-app .squad-key-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    #squad-keys-app .squad-key-actions { justify-content: flex-end; }
+}
+
+@media (max-width: 767px) {
+    #squad-keys-app .squad-overview,
+    #squad-test-chat .squad-test-selects,
+    #squad-test-chat .squad-test-options,
+    #squad-keys-app .squad-key-row {
+        grid-template-columns: 1fr;
+    }
+    #squad-keys-app .squad-toolbar,
+    #squad-keys-app .squad-add-key-row,
+    #squad-cache-panel .squad-cache-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    #squad-keys-app .squad-toolbar { justify-content: flex-start; }
+    #squad-keys-app .squad-search-wrap { flex: 0 0 auto; width: 100%; max-width: none; }
+    #squad-keys-app .squad-provider-meta { justify-content: space-between; }
+    #squad-keys-app .squad-provider-header-row { align-items: stretch; }
+    #squad-keys-app .squad-docs-link { padding: 0 12px; }
+    #squad-keys-app .squad-key-actions { justify-content: flex-start; }
+    #squad-test-chat .squad-test-message-row { grid-template-columns: 1fr; }
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.0] — 2026-07-13
+
+- Added native AdminThemeUikit/Konkat settings UI support based on `pw-design-system` patterns.
+- Reworked provider key management with theme tokens, responsive layouts, provider search and status filters, accessible disclosure controls, key visibility toggles, and clearer save/test states.
+- Updated Test Chat and cache management panels to use native UIkit controls and theme-aware feedback states.
+
 ## [1.6.1] — 2026-07-12
 
 - Vision inputs now enforce 12,000 px per-side and 32 MP decoded-dimension caps in addition to byte limits.
