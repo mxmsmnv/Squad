@@ -127,6 +127,82 @@ class SquadProvider {
         return $this->sendOpenAICompatible($message, $model, $systemPrompt, $maxTokens, $temperature, $history);
     }
 
+    /**
+     * Stream text deltas from Anthropic or an OpenAI-compatible provider.
+     *
+     * @param callable(string):void $onDelta
+     * @return array ['success','content','message','usage','raw']
+     */
+    public function streamMessage(string $message, callable $onDelta, array $options = []): array {
+        $model = (string)($options['model'] ?? $this->model);
+        $systemPrompt = (string)($options['systemPrompt'] ?? '');
+        $maxTokens = (int)($options['maxTokens'] ?? 1024);
+        $temperature = (float)($options['temperature'] ?? 0.7);
+        $history = (array)($options['history'] ?? []);
+        $messages = [];
+
+        foreach($history as $item) {
+            if(!is_array($item)) continue;
+            $messages[] = [
+                'role' => ($item['role'] ?? 'user') === 'assistant' ? 'assistant' : 'user',
+                'content' => (string)($item['content'] ?? ''),
+            ];
+        }
+        $messages[] = ['role' => 'user', 'content' => $message];
+
+        if($this->providerKey === 'anthropic') {
+            $body = [
+                'model' => $model,
+                'max_tokens' => $maxTokens,
+                'messages' => $messages,
+                'stream' => true,
+            ];
+            if($systemPrompt !== '') {
+                $body['system'] = !empty($options['cachePrompt'])
+                    ? [['type' => 'text', 'text' => $systemPrompt, 'cache_control' => ['type' => 'ephemeral']]]
+                    : $systemPrompt;
+            }
+            if($temperature > 0 && $this->anthropicAcceptsSampling($model)) {
+                $body['temperature'] = $temperature;
+            }
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: text/event-stream',
+                'x-api-key: ' . $this->apiKey,
+            ];
+        } else {
+            if($systemPrompt !== '') {
+                array_unshift($messages, ['role' => 'system', 'content' => $systemPrompt]);
+            }
+            $body = [
+                'model' => $model,
+                'temperature' => $temperature,
+                'messages' => $messages,
+                'stream' => true,
+                'stream_options' => ['include_usage' => true],
+            ];
+            if($this->providerKey === 'openai') $body['max_completion_tokens'] = $maxTokens;
+            else $body['max_tokens'] = $maxTokens;
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: text/event-stream',
+                'Authorization: Bearer ' . $this->apiKey,
+            ];
+        }
+
+        foreach($this->config['extraHeaders'] ?? [] as $key => $value) {
+            if($value !== '') $headers[] = "{$key}: {$value}";
+        }
+
+        return $this->curlStreamRequest(
+            (string)$this->config['url'],
+            $body,
+            $headers,
+            $onDelta,
+            $this->providerKey === 'anthropic'
+        );
+    }
+
     /** Analyze one or more normalized data-URL images with a multimodal model. */
     public function analyzeImages(string $prompt, array $images, array $options = []): array {
         $model = (string)($options['model'] ?? $this->model);
@@ -740,6 +816,160 @@ class SquadProvider {
             'data'     => $data,
             'message'  => 'OK',
             'httpCode' => $httpCode,
+        ];
+    }
+
+    /**
+     * Execute a Server-Sent Events request and normalize provider deltas.
+     */
+    protected function curlStreamRequest(
+        string $url,
+        array $body,
+        array $headers,
+        callable $onDelta,
+        bool $anthropic
+    ): array {
+        $content = '';
+        $usage = [];
+        $buffer = '';
+        $apiError = '';
+        $rawErrorBody = '';
+        $callbackError = null;
+
+        $consume = function(string $line) use (
+            &$content,
+            &$usage,
+            &$apiError,
+            &$rawErrorBody,
+            &$callbackError,
+            $onDelta,
+            $anthropic
+        ): void {
+            $line = trim($line);
+            if($line === '' || str_starts_with($line, 'event:') || str_starts_with($line, ':')) return;
+            if(!str_starts_with($line, 'data:')) {
+                if(strlen($rawErrorBody) < 8192) $rawErrorBody .= $line;
+                return;
+            }
+            $payload = trim(substr($line, 5));
+            if($payload === '' || $payload === '[DONE]') return;
+            $data = json_decode($payload, true);
+            if(!is_array($data)) return;
+            if(isset($data['error'])) {
+                $apiError = is_array($data['error'])
+                    ? (string)($data['error']['message'] ?? 'Provider streaming error')
+                    : (string)$data['error'];
+                return;
+            }
+
+            $delta = '';
+            if($anthropic) {
+                if(($data['type'] ?? '') === 'content_block_delta'
+                    && ($data['delta']['type'] ?? '') === 'text_delta') {
+                    $delta = (string)($data['delta']['text'] ?? '');
+                }
+                if(($data['type'] ?? '') === 'message_start') {
+                    $input = (int)($data['message']['usage']['input_tokens'] ?? 0);
+                    $usage['input_tokens'] = $input;
+                }
+                if(($data['type'] ?? '') === 'message_delta') {
+                    $output = (int)($data['usage']['output_tokens'] ?? 0);
+                    $usage['output_tokens'] = $output;
+                }
+            } else {
+                $delta = (string)($data['choices'][0]['delta']['content'] ?? '');
+                if(isset($data['usage']) && is_array($data['usage'])) {
+                    $usage = [
+                        'input_tokens' => (int)($data['usage']['prompt_tokens'] ?? 0),
+                        'output_tokens' => (int)($data['usage']['completion_tokens'] ?? 0),
+                        'total_tokens' => (int)($data['usage']['total_tokens'] ?? 0),
+                    ];
+                }
+            }
+
+            if($delta === '') return;
+            $content .= $delta;
+            try {
+                $onDelta($delta);
+            } catch(\Throwable $e) {
+                $callbackError = $e;
+            }
+        };
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($body),
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_TIMEOUT => $this->options['timeout'],
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_WRITEFUNCTION => function($curl, string $chunk) use (&$buffer, $consume, &$callbackError): int {
+                $length = strlen($chunk);
+                $buffer .= str_replace("\r\n", "\n", $chunk);
+                while(($position = strpos($buffer, "\n")) !== false) {
+                    $line = substr($buffer, 0, $position);
+                    $buffer = substr($buffer, $position + 1);
+                    $consume($line);
+                    if($callbackError) return 0;
+                }
+                return $length;
+            },
+        ]);
+
+        $ok = curl_exec($ch);
+        if($buffer !== '') $consume($buffer);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+
+        if($callbackError) {
+            return [
+                'success' => false,
+                'content' => $content,
+                'message' => 'Streaming callback failed: ' . $callbackError->getMessage(),
+                'usage' => $usage,
+                'raw' => [],
+            ];
+        }
+        if($ok === false || $curlErrno) {
+            return [
+                'success' => false,
+                'content' => $content,
+                'message' => "cURL error ({$curlErrno}): {$curlError}",
+                'usage' => $usage,
+                'raw' => [],
+            ];
+        }
+        if($httpCode >= 400 || $apiError !== '') {
+            $decoded = json_decode($rawErrorBody, true);
+            $message = $apiError;
+            if($message === '' && is_array($decoded)) {
+                $message = (string)($decoded['error']['message'] ?? $decoded['error'] ?? '');
+            }
+            if($message === '') $message = "HTTP {$httpCode}";
+            return [
+                'success' => false,
+                'content' => $content,
+                'message' => $message,
+                'usage' => $usage,
+                'raw' => $decoded ?: [],
+            ];
+        }
+
+        if($anthropic) {
+            $usage['total_tokens'] = (int)($usage['input_tokens'] ?? 0) + (int)($usage['output_tokens'] ?? 0);
+        }
+
+        return [
+            'success' => $content !== '',
+            'content' => $content,
+            'message' => $content !== '' ? 'OK' : 'Provider returned an empty stream',
+            'usage' => $usage,
+            'raw' => [],
         ];
     }
 

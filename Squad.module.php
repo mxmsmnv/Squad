@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.7.0
+ * @version 1.8.0
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -30,7 +30,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.7.0',
+            'version'  => '1.8.0',
             'summary'  => __('AI integration for ProcessWire. Supports Anthropic, OpenAI, Google, xAI, and OpenRouter.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -761,6 +761,53 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         } catch (\Throwable $e) {
             $this->logError("ask() error: " . $e->getMessage());
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Stream a text response as provider deltas.
+     *
+     * Streaming intentionally bypasses Squad's response cache: callers receive
+     * provider output as it arrives and can persist the final normalized result.
+     *
+     * @param string $message
+     * @param callable(string):void $onDelta
+     * @param array $options provider, model, systemPrompt, maxTokens,
+     *   temperature, history, key, keyIndex, timeout
+     * @return array ['success','content','usage','provider','model','message']
+     */
+    public function stream(string $message, callable $onDelta, array $options = []): array {
+        $providerKey = (string)($options['provider'] ?? $this->getDefaultProviderKey());
+        $provider = $this->getProvider(
+            $providerKey,
+            $options['key'] ?? null,
+            isset($options['keyIndex']) ? (int)$options['keyIndex'] : null
+        );
+        if(!$provider) return $this->errorResponse("No active provider found for '{$providerKey}'");
+
+        $model = (string)($options['model'] ?? $provider->getModel());
+        $timeout = isset($options['timeout']) ? (int)$options['timeout'] : null;
+        if($timeout) $provider->setTimeout($timeout);
+
+        try {
+            $result = $provider->streamMessage($message, $onDelta, [
+                'model' => $model,
+                'systemPrompt' => (string)($options['systemPrompt'] ?? $this->systemPrompt),
+                'maxTokens' => (int)($options['maxTokens'] ?? $this->maxTokens),
+                'temperature' => (float)($options['temperature'] ?? $this->temperature),
+                'history' => (array)($options['history'] ?? []),
+                'cachePrompt' => !empty($options['promptCache']),
+            ]);
+            $result['provider'] = $providerKey;
+            $result['model'] = $model;
+            if(!empty($result['success'])) {
+                $this->log("Stream response from {$providerKey}/{$model} — "
+                    . ($result['usage']['total_tokens'] ?? '?') . ' tokens');
+            }
+            return $result;
+        } catch(\Throwable $e) {
+            $this->logError('stream() error: ' . $e->getMessage());
             return $this->errorResponse($e->getMessage());
         }
     }
@@ -1840,7 +1887,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         // UIkit-native, theme-aware enhancements based on pw-design-system.
         $this->wire('config')->styles->add(
-            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.7.0'
+            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.8.0'
         );
 
         // Sweep any plaintext keys left in the config field into the encrypted

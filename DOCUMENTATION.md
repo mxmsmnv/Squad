@@ -12,6 +12,7 @@
 - [API Reference](#api-reference)
   - [chat()](#chatstring-message-array-options---string)
   - [ask()](#askstring-message-array-options---array)
+  - [stream()](#streamstring-message-callable-ondelta-array-options---array)
   - [askWithFallback()](#askwithfallbackstring-message-array-options---array)
   - [askMultiple()](#askmultiplestring-message-array-providers-array-options---array)
   - [askAndSave()](#askandsavepage-page-stringarray-fields-string-message-array-options---array)
@@ -96,6 +97,34 @@ $result = $ai->ask('Translate "hello" to 10 languages');
     'raw' => [ ... ],            // full raw API response
 ]
 ```
+
+### `stream(string $message, callable $onDelta, array $options = []): array`
+
+Forwards text deltas as soon as the provider sends them and returns the same
+complete normalized result at the end. Streaming bypasses the response cache.
+
+```php
+$result = $ai->stream(
+    'Explain Armagnac in three short paragraphs.',
+    function(string $delta): void {
+        echo $delta;
+        if(function_exists('ob_flush')) @ob_flush();
+        flush();
+    },
+    [
+        'provider' => 'openrouter',
+        'model' => 'google/gemini-3.5-flash-lite',
+        'maxTokens' => 800,
+    ]
+);
+
+if(!$result['success']) {
+    $log->error($result['message']);
+}
+```
+
+The callback receives untrusted plain text. Escape it before placing it into
+HTML, or transport it as JSON/SSE and render it safely in the browser.
 
 ### `askWithFallback(string $message, array $options = []): array`
 

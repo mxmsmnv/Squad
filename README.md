@@ -19,6 +19,7 @@ echo $ai->chat('Write a one-line tagline for a dentist in Boston.');
 
 - **14 providers, one API** — Anthropic (Claude), OpenAI (GPT), Google (Gemini), xAI (Grok), OpenRouter (400+ models), plus **direct Chinese providers**: DeepSeek, Qwen (Alibaba), Kimi (Moonshot), GLM (Zhipu), MiniMax, Yi (01.AI), Doubao (ByteDance), Ernie (Baidu), Hunyuan (Tencent).
 - **Text** — `chat()` / `ask()` with system prompts, multi-turn history, temperature, token limits.
+- **Streaming text** — `stream()` forwards provider deltas as they arrive while returning the complete normalized response.
 - **Embeddings** — `embed()` for one string or a batch (OpenAI, Google, Qwen, Zhipu). Powers RAG (see the [Atlas](https://github.com/mxmsmnv/Atlas) module).
 - **Images** — `image()` for text-to-image (xAI Grok Imagine, OpenAI gpt-image-1 / DALL·E 3).
 - **Vision** — `vision()` analyzes up to four bounded local images through multimodal Anthropic or OpenAI-compatible models (8 MB/image, 20 MB total, 12,000 px/side, 32 MP).
@@ -122,6 +123,7 @@ $ai->generate($page, [
 |---|---|---|
 | `chat($msg, $opts)` | `string` | Text only, `''` on error |
 | `ask($msg, $opts)` | `array` | `success`, `content`, `usage`, `raw`, `cached` |
+| `stream($msg, $onDelta, $opts)` | `array` | Calls `$onDelta` for each text delta and returns the final response |
 | `askWithFallback($msg, $opts)` | `array` | Tries all keys/providers until success |
 | `askMultiple($msg, $providers)` | `array` | Same prompt to several providers |
 | `embed($input, $opts)` | `array` | `embedding` (single) / `embeddings` (batch), `model`, `usage` |

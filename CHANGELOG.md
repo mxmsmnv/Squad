@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.0] — 2026-07-23
+
+- Added provider-independent `stream()` support for Anthropic and all
+  OpenAI-compatible providers, including OpenRouter.
+- Streaming callbacks receive text deltas immediately while the returned result
+  retains the complete content, usage, provider, and model metadata.
+- Streaming requests bypass the response cache so callers never receive a fake
+  post-completion typing effect.
+
 ## [1.7.0] — 2026-07-13
 
 - Added native AdminThemeUikit/Konkat settings UI support based on `pw-design-system` patterns.
