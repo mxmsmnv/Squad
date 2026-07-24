@@ -1,5 +1,18 @@
 # Squad — Full Documentation
 
+## Web search
+
+Pass `webSearch => true` to `ask()` or `stream()` and optionally set
+`webSearchMaxResults` from 1 to 10. Squad translates the common option to the
+selected provider's native search transport. Successful responses include a
+normalized `sources` array with `title` and `url`.
+
+OpenRouter can search with every routed model. Direct Anthropic, OpenAI, Google
+and xAI providers are also supported. Other direct OpenAI-compatible adapters
+fail explicitly because silently returning an answer without current web
+evidence would be misleading. Provider search charges and latency are separate
+from normal model usage.
+
 > Provider-independent AI gateway for ProcessWire — complete API reference, 25 real-world examples, and implementation guides.
 >
 > One API for **14 providers** (Anthropic, OpenAI, Google, xAI, OpenRouter, and the direct Chinese providers DeepSeek, Qwen, Moonshot, Zhipu, MiniMax, 01.AI, Doubao, Ernie, Hunyuan). Text (`chat`/`ask`), embeddings (`embed`), images (`image`), and agentic tool-use (`run`) — plus encrypted key storage, file caching, and field persistence.

@@ -240,6 +240,8 @@ class SquadCache {
             'system'   => $options['systemPrompt'] ?? '',
             'temp'     => $options['temperature'] ?? '',
             'history'  => !empty($options['history']) ? md5(json_encode($options['history'])) : '',
+            'web'      => !empty($options['webSearch']),
+            'webMax'   => (int)($options['webSearchMaxResults'] ?? 5),
         ];
 
         return substr(md5(json_encode($keyParts)), 0, 12);

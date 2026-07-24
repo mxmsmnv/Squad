@@ -108,8 +108,9 @@ class SquadProvider {
      * Send a message and get a response
      *
      * @param string $message
-     * @param array $options model, systemPrompt, maxTokens, temperature, history
-     * @return array ['success', 'content', 'message', 'usage', 'raw']
+     * @param array $options model, systemPrompt, maxTokens, temperature, history,
+     *   webSearch, webSearchMaxResults
+     * @return array ['success', 'content', 'message', 'usage', 'sources', 'raw']
      */
     public function sendMessage(string $message, array $options = []): array {
         $model       = $options['model'] ?? $this->model;
@@ -117,14 +118,28 @@ class SquadProvider {
         $maxTokens   = (int)($options['maxTokens'] ?? 1024);
         $temperature = (float)($options['temperature'] ?? 0.7);
         $history     = $options['history'] ?? [];
+        $webSearch   = !empty($options['webSearch']);
+        $webSearchMaxResults = max(1, min(10, (int)($options['webSearchMaxResults'] ?? 5)));
 
         // Build request based on provider type
         if ($this->providerKey === 'anthropic') {
-            return $this->sendAnthropic($message, $model, $systemPrompt, $maxTokens, $temperature, $history, !empty($options['cachePrompt']));
+            return $this->sendAnthropic($message, $model, $systemPrompt, $maxTokens, $temperature, $history, !empty($options['cachePrompt']), $webSearch, $webSearchMaxResults);
+        }
+
+        if($webSearch) {
+            if(in_array($this->providerKey, ['openai', 'xai'], true)) {
+                return $this->sendResponsesWebSearch($message, $model, $systemPrompt, $maxTokens, $temperature, $history);
+            }
+            if($this->providerKey === 'google') {
+                return $this->sendGoogleWebSearch($message, $model, $systemPrompt, $maxTokens, $temperature, $history);
+            }
+            if($this->providerKey !== 'openrouter') {
+                return $this->unsupportedWebSearchResponse();
+            }
         }
 
         // OpenAI-compatible: openai, google, xai, openrouter
-        return $this->sendOpenAICompatible($message, $model, $systemPrompt, $maxTokens, $temperature, $history);
+        return $this->sendOpenAICompatible($message, $model, $systemPrompt, $maxTokens, $temperature, $history, $webSearch, $webSearchMaxResults);
     }
 
     /**
@@ -139,6 +154,22 @@ class SquadProvider {
         $maxTokens = (int)($options['maxTokens'] ?? 1024);
         $temperature = (float)($options['temperature'] ?? 0.7);
         $history = (array)($options['history'] ?? []);
+        $webSearch = !empty($options['webSearch']);
+        $webSearchMaxResults = max(1, min(10, (int)($options['webSearchMaxResults'] ?? 5)));
+
+        // These providers expose search through APIs other than their Chat
+        // Completions streaming endpoint. Preserve Squad's callback contract by
+        // emitting the complete searched answer as one delta.
+        if($webSearch && in_array($this->providerKey, ['openai', 'google', 'xai'], true)) {
+            $result = $this->sendMessage($message, $options);
+            if(!empty($result['success']) && (string)($result['content'] ?? '') !== '') {
+                $onDelta((string)$result['content']);
+            }
+            return $result;
+        }
+        if($webSearch && $this->providerKey !== 'anthropic' && $this->providerKey !== 'openrouter') {
+            return $this->unsupportedWebSearchResponse();
+        }
         $messages = [];
 
         foreach($history as $item) {
@@ -165,6 +196,13 @@ class SquadProvider {
             if($temperature > 0 && $this->anthropicAcceptsSampling($model)) {
                 $body['temperature'] = $temperature;
             }
+            if($webSearch) {
+                $body['tools'][] = [
+                    'type' => 'web_search_20250305',
+                    'name' => 'web_search',
+                    'max_uses' => $webSearchMaxResults,
+                ];
+            }
             $headers = [
                 'Content-Type: application/json',
                 'Accept: text/event-stream',
@@ -183,6 +221,9 @@ class SquadProvider {
             ];
             if($this->providerKey === 'openai') $body['max_completion_tokens'] = $maxTokens;
             else $body['max_tokens'] = $maxTokens;
+            if($webSearch && $this->providerKey === 'openrouter') {
+                $body['plugins'][] = ['id' => 'web', 'max_results' => $webSearchMaxResults];
+            }
             $headers = [
                 'Content-Type: application/json',
                 'Accept: text/event-stream',
@@ -273,7 +314,7 @@ class SquadProvider {
         return true;
     }
 
-    protected function sendAnthropic(string $message, string $model, string $systemPrompt, int $maxTokens, float $temperature, array $history, bool $cachePrompt = false): array {
+    protected function sendAnthropic(string $message, string $model, string $systemPrompt, int $maxTokens, float $temperature, array $history, bool $cachePrompt = false, bool $webSearch = false, int $webSearchMaxResults = 5): array {
         $messages = [];
 
         // Add history
@@ -314,6 +355,13 @@ class SquadProvider {
         // which use adaptive thinking instead of sampling params. Omit it for those.
         if ($temperature > 0 && $this->anthropicAcceptsSampling($model)) {
             $body['temperature'] = $temperature;
+        }
+        if($webSearch) {
+            $body['tools'][] = [
+                'type' => 'web_search_20250305',
+                'name' => 'web_search',
+                'max_uses' => max(1, min(10, $webSearchMaxResults)),
+            ];
         }
 
         $headers = [
@@ -372,6 +420,7 @@ class SquadProvider {
             'content' => $content,
             'message' => 'OK',
             'usage'   => $usage,
+            'sources' => $this->extractAnthropicSources($data),
             'raw'     => $data,
         ];
     }
@@ -379,7 +428,7 @@ class SquadProvider {
     /**
      * Send request to OpenAI-compatible API (OpenAI, Google, xAI, OpenRouter)
      */
-    protected function sendOpenAICompatible(string $message, string $model, string $systemPrompt, int $maxTokens, float $temperature, array $history): array {
+    protected function sendOpenAICompatible(string $message, string $model, string $systemPrompt, int $maxTokens, float $temperature, array $history, bool $webSearch = false, int $webSearchMaxResults = 5): array {
         $messages = [];
 
         // System message
@@ -416,6 +465,12 @@ class SquadProvider {
             $body['max_completion_tokens'] = $maxTokens;
         } else {
             $body['max_tokens'] = $maxTokens;
+        }
+        if($webSearch && $this->providerKey === 'openrouter') {
+            $body['plugins'][] = [
+                'id' => 'web',
+                'max_results' => max(1, min(10, $webSearchMaxResults)),
+            ];
         }
 
         $headers = [
@@ -468,8 +523,203 @@ class SquadProvider {
             'content' => $content,
             'message' => 'OK',
             'usage'   => $usage,
+            'sources' => $this->extractOpenAICompatibleSources($data),
             'raw'     => $data,
         ];
+    }
+
+    /**
+     * OpenAI and xAI expose provider web search through the Responses API.
+     */
+    protected function sendResponsesWebSearch(string $message, string $model, string $systemPrompt, int $maxTokens, float $temperature, array $history): array {
+        $input = [];
+        foreach($history as $item) {
+            if(!is_array($item)) continue;
+            $input[] = [
+                'role' => ($item['role'] ?? 'user') === 'assistant' ? 'assistant' : 'user',
+                'content' => (string)($item['content'] ?? ''),
+            ];
+        }
+        $input[] = ['role' => 'user', 'content' => $message];
+        $body = [
+            'model' => $model,
+            'input' => $input,
+            'tools' => [['type' => 'web_search']],
+            'max_output_tokens' => $maxTokens,
+        ];
+        if($systemPrompt !== '') $body['instructions'] = $systemPrompt;
+        if($temperature >= 0) $body['temperature'] = $temperature;
+        $url = $this->providerKey === 'xai'
+            ? 'https://api.x.ai/v1/responses'
+            : 'https://api.openai.com/v1/responses';
+        $response = $this->curlRequest($url, $body, [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $this->apiKey,
+        ]);
+        if(!$response['success']) return $response;
+        $data = (array)$response['data'];
+        if(isset($data['error'])) return $this->providerErrorResponse($data);
+        $content = '';
+        $sources = [];
+        foreach((array)($data['output'] ?? []) as $item) {
+            if(($item['type'] ?? '') !== 'message') continue;
+            foreach((array)($item['content'] ?? []) as $block) {
+                if(!in_array(($block['type'] ?? ''), ['output_text', 'text'], true)) continue;
+                $content .= (string)($block['text'] ?? '');
+                $sources = array_merge(
+                    $sources,
+                    $this->sourcesFromAnnotations((array)($block['annotations'] ?? []))
+                );
+            }
+        }
+        $usageData = (array)($data['usage'] ?? []);
+        return [
+            'success' => true,
+            'content' => $content,
+            'message' => 'OK',
+            'usage' => [
+                'input_tokens' => (int)($usageData['input_tokens'] ?? 0),
+                'output_tokens' => (int)($usageData['output_tokens'] ?? 0),
+                'total_tokens' => (int)($usageData['total_tokens'] ?? 0),
+            ],
+            'sources' => $this->uniqueSources($sources),
+            'raw' => $data,
+        ];
+    }
+
+    /**
+     * Google Search grounding requires Gemini's native generateContent API.
+     */
+    protected function sendGoogleWebSearch(string $message, string $model, string $systemPrompt, int $maxTokens, float $temperature, array $history): array {
+        $contents = [];
+        foreach($history as $item) {
+            if(!is_array($item)) continue;
+            $contents[] = [
+                'role' => ($item['role'] ?? 'user') === 'assistant' ? 'model' : 'user',
+                'parts' => [['text' => (string)($item['content'] ?? '')]],
+            ];
+        }
+        $contents[] = ['role' => 'user', 'parts' => [['text' => $message]]];
+        $body = [
+            'contents' => $contents,
+            'tools' => [['google_search' => new \stdClass()]],
+            'generationConfig' => [
+                'maxOutputTokens' => $maxTokens,
+                'temperature' => $temperature,
+            ],
+        ];
+        if($systemPrompt !== '') {
+            $body['systemInstruction'] = ['parts' => [['text' => $systemPrompt]]];
+        }
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+            . rawurlencode($model) . ':generateContent';
+        $response = $this->curlRequest($url, $body, [
+            'Content-Type: application/json',
+            'x-goog-api-key: ' . $this->apiKey,
+        ]);
+        if(!$response['success']) return $response;
+        $data = (array)$response['data'];
+        if(isset($data['error'])) return $this->providerErrorResponse($data);
+        $candidate = (array)($data['candidates'][0] ?? []);
+        $content = '';
+        foreach((array)($candidate['content']['parts'] ?? []) as $part) {
+            $content .= (string)($part['text'] ?? '');
+        }
+        $sources = [];
+        foreach((array)($candidate['groundingMetadata']['groundingChunks'] ?? []) as $chunk) {
+            $web = (array)($chunk['web'] ?? []);
+            if(empty($web['uri'])) continue;
+            $sources[] = [
+                'url' => (string)$web['uri'],
+                'title' => (string)($web['title'] ?? $web['uri']),
+            ];
+        }
+        $usageData = (array)($data['usageMetadata'] ?? []);
+        return [
+            'success' => true,
+            'content' => $content,
+            'message' => 'OK',
+            'usage' => [
+                'input_tokens' => (int)($usageData['promptTokenCount'] ?? 0),
+                'output_tokens' => (int)($usageData['candidatesTokenCount'] ?? 0),
+                'total_tokens' => (int)($usageData['totalTokenCount'] ?? 0),
+            ],
+            'sources' => $this->uniqueSources($sources),
+            'raw' => $data,
+        ];
+    }
+
+    protected function unsupportedWebSearchResponse(): array {
+        return [
+            'success' => false,
+            'content' => '',
+            'message' => "Web search is not supported by the direct '{$this->providerKey}' adapter. Use OpenRouter, Anthropic, OpenAI, Google or xAI.",
+            'usage' => [],
+            'sources' => [],
+            'raw' => [],
+        ];
+    }
+
+    protected function providerErrorResponse(array $data): array {
+        $error = $data['error'] ?? [];
+        return [
+            'success' => false,
+            'content' => '',
+            'message' => is_array($error) ? (string)($error['message'] ?? 'API error') : (string)$error,
+            'usage' => [],
+            'sources' => [],
+            'raw' => $data,
+        ];
+    }
+
+    protected function extractOpenAICompatibleSources(array $data): array {
+        $message = (array)($data['choices'][0]['message'] ?? []);
+        return $this->uniqueSources(
+            $this->sourcesFromAnnotations((array)($message['annotations'] ?? []))
+        );
+    }
+
+    protected function extractAnthropicSources(array $data): array {
+        $sources = [];
+        foreach((array)($data['content'] ?? []) as $block) {
+            foreach((array)($block['citations'] ?? []) as $citation) {
+                $url = (string)($citation['url'] ?? '');
+                if($url === '') continue;
+                $sources[] = [
+                    'url' => $url,
+                    'title' => (string)($citation['title'] ?? $url),
+                ];
+            }
+        }
+        return $this->uniqueSources($sources);
+    }
+
+    protected function sourcesFromAnnotations(array $annotations): array {
+        $sources = [];
+        foreach($annotations as $annotation) {
+            if(!is_array($annotation)) continue;
+            $citation = (array)($annotation['url_citation'] ?? $annotation);
+            $url = (string)($citation['url'] ?? '');
+            if($url === '') continue;
+            $sources[] = [
+                'url' => $url,
+                'title' => (string)($citation['title'] ?? $url),
+            ];
+        }
+        return $sources;
+    }
+
+    protected function uniqueSources(array $sources): array {
+        $result = [];
+        $seen = [];
+        foreach($sources as $source) {
+            $url = trim((string)($source['url'] ?? ''));
+            if($url === '' || isset($seen[$url])) continue;
+            $seen[$url] = true;
+            $title = trim((string)($source['title'] ?? $url));
+            $result[] = ['url' => $url, 'title' => $title !== '' ? $title : $url];
+        }
+        return $result;
     }
 
     /**
@@ -835,6 +1085,7 @@ class SquadProvider {
         $apiError = '';
         $rawErrorBody = '';
         $callbackError = null;
+        $sources = [];
 
         $consume = function(string $line) use (
             &$content,
@@ -842,6 +1093,7 @@ class SquadProvider {
             &$apiError,
             &$rawErrorBody,
             &$callbackError,
+            &$sources,
             $onDelta,
             $anthropic
         ): void {
@@ -876,8 +1128,26 @@ class SquadProvider {
                     $output = (int)($data['usage']['output_tokens'] ?? 0);
                     $usage['output_tokens'] = $output;
                 }
+                if(($data['type'] ?? '') === 'content_block_delta'
+                    && ($data['delta']['type'] ?? '') === 'citations_delta') {
+                    $citation = (array)($data['delta']['citation'] ?? []);
+                    if(!empty($citation['url'])) {
+                        $sources[] = [
+                            'url' => (string)$citation['url'],
+                            'title' => (string)($citation['title'] ?? $citation['url']),
+                        ];
+                    }
+                }
             } else {
                 $delta = (string)($data['choices'][0]['delta']['content'] ?? '');
+                $annotations = (array)(
+                    $data['choices'][0]['delta']['annotations']
+                    ?? $data['choices'][0]['message']['annotations']
+                    ?? []
+                );
+                if($annotations) {
+                    $sources = array_merge($sources, $this->sourcesFromAnnotations($annotations));
+                }
                 if(isset($data['usage']) && is_array($data['usage'])) {
                     $usage = [
                         'input_tokens' => (int)($data['usage']['prompt_tokens'] ?? 0),
@@ -969,6 +1239,7 @@ class SquadProvider {
             'content' => $content,
             'message' => $content !== '' ? 'OK' : 'Provider returned an empty stream',
             'usage' => $usage,
+            'sources' => $this->uniqueSources($sources),
             'raw' => [],
         ];
     }

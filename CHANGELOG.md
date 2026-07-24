@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.9.0] — 2026-07-24
+
+- Added provider-independent `webSearch` and `webSearchMaxResults` request
+  options for `ask()` and `stream()`.
+- Added OpenRouter web-plugin support for every routed model, native Anthropic
+  web-search tools, OpenAI/xAI Responses API search and native Google Search
+  grounding.
+- Normalized web citations into a provider-independent `sources` result array.
+- Included web-search settings in response cache keys and rejected unsupported
+  direct adapters explicitly instead of silently returning an unsearched answer.
+
 ## [1.8.0] — 2026-07-23
 
 - Added provider-independent `stream()` support for Anthropic and all

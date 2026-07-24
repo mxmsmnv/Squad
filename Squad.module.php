@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.8.0
+ * @version 1.9.0
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -30,7 +30,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.8.0',
+            'version'  => '1.9.0',
             'summary'  => __('AI integration for ProcessWire. Supports Anthropic, OpenAI, Google, xAI, and OpenRouter.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -669,6 +669,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
      * @param string $message User message
      * @param array $options Optional overrides:
      *   provider, model, systemPrompt, maxTokens, temperature, history, key, keyIndex
+     *   webSearch: bool — enable provider-native web search where supported
+     *   webSearchMaxResults: int — bounded search result/tool-use count (1-10)
      *   cache: true|'D'|'W'|'M'|'Y'|'2D'|'3W'|int(seconds)|false — cache TTL
      *   pageId: int|Page — page context for cache (0 = global)
      * @return array ['success', 'content', 'usage', 'raw', 'cached']
@@ -744,6 +746,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 'temperature'  => $temperature,
                 'history'      => $history,
                 'cachePrompt'  => $cachePrompt,
+                'webSearch'    => !empty($options['webSearch']),
+                'webSearchMaxResults' => max(1, min(10, (int)($options['webSearchMaxResults'] ?? 5))),
             ]);
 
             if ($result['success']) {
@@ -774,7 +778,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
      * @param string $message
      * @param callable(string):void $onDelta
      * @param array $options provider, model, systemPrompt, maxTokens,
-     *   temperature, history, key, keyIndex, timeout
+     *   temperature, history, key, keyIndex, timeout, webSearch,
+     *   webSearchMaxResults
      * @return array ['success','content','usage','provider','model','message']
      */
     public function stream(string $message, callable $onDelta, array $options = []): array {
@@ -798,6 +803,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 'temperature' => (float)($options['temperature'] ?? $this->temperature),
                 'history' => (array)($options['history'] ?? []),
                 'cachePrompt' => !empty($options['promptCache']),
+                'webSearch' => !empty($options['webSearch']),
+                'webSearchMaxResults' => max(1, min(10, (int)($options['webSearchMaxResults'] ?? 5))),
             ]);
             $result['provider'] = $providerKey;
             $result['model'] = $model;

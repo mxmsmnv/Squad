@@ -20,6 +20,9 @@ echo $ai->chat('Write a one-line tagline for a dentist in Boston.');
 - **14 providers, one API** — Anthropic (Claude), OpenAI (GPT), Google (Gemini), xAI (Grok), OpenRouter (400+ models), plus **direct Chinese providers**: DeepSeek, Qwen (Alibaba), Kimi (Moonshot), GLM (Zhipu), MiniMax, Yi (01.AI), Doubao (ByteDance), Ernie (Baidu), Hunyuan (Tencent).
 - **Text** — `chat()` / `ask()` with system prompts, multi-turn history, temperature, token limits.
 - **Streaming text** — `stream()` forwards provider deltas as they arrive while returning the complete normalized response.
+- **Optional web search** — one `webSearch` flag maps to OpenRouter's web
+  plugin, Anthropic web search, OpenAI/xAI Responses search or native Google
+  Search grounding; normalized citations are returned as `sources`.
 - **Embeddings** — `embed()` for one string or a batch (OpenAI, Google, Qwen, Zhipu). Powers RAG (see the [Atlas](https://github.com/mxmsmnv/Atlas) module).
 - **Images** — `image()` for text-to-image (xAI Grok Imagine, OpenAI gpt-image-1 / DALL·E 3).
 - **Vision** — `vision()` analyzes up to four bounded local images through multimodal Anthropic or OpenAI-compatible models (8 MB/image, 20 MB total, 12,000 px/side, 32 MP).
@@ -136,7 +139,31 @@ $ai->generate($page, [
 | `getDefaultEmbedProvider()` / `getDefaultImageProvider()` | `?string` | First capable provider with a key |
 | `clearCache` / `clearAllCache` / `cacheStats` | — | Cache management |
 
-Common `$opts`: `provider`, `model`, `systemPrompt`, `maxTokens`, `temperature`, `history`, `keyIndex`, `cache`, `timeout`. Embeddings/images also accept `provider`/`model`; `image()` takes `aspect`, `resolution`, `size`, `n`. `vision($prompt, $images, $opts)` accepts bounded local image paths or image data URLs.
+Common `$opts`: `provider`, `model`, `systemPrompt`, `maxTokens`, `temperature`,
+`history`, `keyIndex`, `cache`, `timeout`, `webSearch` and
+`webSearchMaxResults` (1–10, default 5). Search may add provider charges and
+latency. OpenRouter supports search for every routed model; direct search is
+supported for Anthropic, OpenAI, Google and xAI. Other direct adapters return a
+clear unsupported error instead of silently answering without search.
+
+```php
+$result = $modules->get('Squad')->ask(
+    'What changed in Australian herbal liqueurs this year?',
+    [
+        'provider' => 'openrouter',
+        'webSearch' => true,
+        'webSearchMaxResults' => 5,
+    ]
+);
+
+foreach($result['sources'] ?? [] as $source) {
+    echo $source['title'] . ': ' . $source['url'];
+}
+```
+
+Embeddings/images also accept `provider`/`model`; `image()` takes `aspect`,
+`resolution`, `size`, `n`. `vision($prompt, $images, $opts)` accepts bounded
+local image paths or image data URLs.
 
 ---
 
