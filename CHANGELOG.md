@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.1] — 2026-07-31
+
+- Reduced the default provider timeout to 20 seconds and the connection timeout
+  to 5 seconds.
+- Capped provider calls from web workers at 20 seconds so PHP can return before
+  the web server's FastCGI timeout; bounded CLI workers may still request a
+  longer timeout explicitly.
+
 ## [1.9.0] — 2026-07-24
 
 - Added provider-independent `webSearch` and `webSearchMaxResults` request

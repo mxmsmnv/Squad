@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.9.0
+ * @version 1.9.1
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -30,7 +30,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.9.0',
+            'version'  => '1.9.1',
             'summary'  => __('AI integration for ProcessWire. Supports Anthropic, OpenAI, Google, xAI, and OpenRouter.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -381,7 +381,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
         'systemPrompt'       => '',
         'maxTokens'          => 1024,
         'temperature'        => 0.7,
-        'timeout'            => 30,
+        'timeout'            => 20,
         'enableCache'        => false,
         'defaultCacheTtl'    => 'D',
         'enableLogging'      => true,
@@ -2006,8 +2006,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
         $f = $modules->get('InputfieldInteger');
         $f->attr('name', 'timeout');
         $f->label = $this->_('Timeout (seconds)');
-        $f->description = $this->_('API request timeout.');
-        $f->attr('value', (int)$this->timeout ?: 30);
+        $f->description = $this->_('API request timeout. Web requests are capped at 20 seconds; longer work must use a queue or CLI worker.');
+        $f->attr('value', (int)$this->timeout ?: 20);
         $f->attr('min', 5);
         $f->attr('max', 300);
         $f->columnWidth = 34;

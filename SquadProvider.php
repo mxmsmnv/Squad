@@ -32,8 +32,11 @@ class SquadProvider {
         $this->apiKey      = $apiKey;
         $this->model       = $model;
         $this->options     = array_merge([
-            'timeout' => 30,
+            'timeout' => 20,
+            'connectTimeout' => 5,
         ], $options);
+		$this->options['timeout'] = $this->normalizeTimeout((int)$this->options['timeout']);
+		$this->options['connectTimeout'] = max(3, min(5, (int)$this->options['connectTimeout']));
     }
 
     /**
@@ -47,8 +50,18 @@ class SquadProvider {
      * Set request timeout
      */
     public function setTimeout(int $seconds): void {
-        $this->options['timeout'] = max(5, $seconds);
+        $this->options['timeout'] = $this->normalizeTimeout($seconds);
     }
+
+	/**
+	 * Web workers must return before the web server's FastCGI idle timeout.
+	 * Bounded queue/CLI workers may opt into a longer provider timeout.
+	 */
+	protected function normalizeTimeout(int $seconds): int {
+		$seconds = max(5, $seconds);
+		if(PHP_SAPI !== 'cli' && PHP_SAPI !== 'phpdbg') $seconds = min(20, $seconds);
+		return min(300, $seconds);
+	}
 
     /**
      * Fetch available models from providers that expose a simple list endpoint.
@@ -1002,7 +1015,7 @@ class SquadProvider {
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $this->options['timeout'],
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => $this->options['connectTimeout'],
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_FOLLOWLOCATION => true,
         ]);
@@ -1174,7 +1187,7 @@ class SquadProvider {
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_RETURNTRANSFER => false,
             CURLOPT_TIMEOUT => $this->options['timeout'],
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => $this->options['connectTimeout'],
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_WRITEFUNCTION => function($curl, string $chunk) use (&$buffer, $consume, &$callbackError): int {
@@ -1313,7 +1326,7 @@ class SquadProvider {
             CURLOPT_HTTPHEADER     => array_merge(['Accept: application/json'], $headers),
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $this->options['timeout'],
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => $this->options['connectTimeout'],
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_FOLLOWLOCATION => true,
         ]);
