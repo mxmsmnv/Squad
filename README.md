@@ -1,6 +1,6 @@
 # Squad AI
 
-*Provider-independent AI gateway for ProcessWire — chat, content, embeddings, images and tool-use behind one clean API. (Formerly AiWire.)*
+*Provider-independent AI gateway for ProcessWire — text, speech, images, embeddings and tool-use behind one clean API. (Formerly AiWire.)*
 
 ![Squad AI](assets/Squad.png)
 
@@ -25,6 +25,7 @@ echo $ai->chat('Write a one-line tagline for a dentist in Boston.');
   Search grounding; normalized citations are returned as `sources`.
 - **Embeddings** — `embed()` for one string or a batch (OpenAI, Google, Qwen, Zhipu). Powers RAG (see the [Atlas](https://github.com/mxmsmnv/Atlas) module).
 - **Images** — `image()` for text-to-image (xAI Grok Imagine, OpenAI gpt-image-1 / DALL·E 3).
+- **Speech** — `audio()` / `speech()` for provider-independent TTS (xAI Voice, OpenRouter Grok Voice, OpenAI TTS), returning normalized base64 audio and metadata.
 - **Vision** — `vision()` analyzes up to four bounded local images through multimodal Anthropic or OpenAI-compatible models (8 MB/image, 20 MB total, 12,000 px/side, 32 MP).
 - **Tool use / agents** — `run()` drives a multi-step tool-calling loop (OpenAI **and** Anthropic tool formats).
 - **Automatic fallback** — `askWithFallback()` walks every enabled key, then other providers, until one succeeds.
@@ -36,6 +37,7 @@ echo $ai->chat('Write a one-line tagline for a dentist in Boston.');
 - **Field storage** — `askAndSave()` / `generate()` write AI copy straight to page fields (skip if already filled).
 - **Editable model catalog** — `models.json` + live model refresh (OpenAI/OpenRouter) + per-key custom model IDs.
 - **Native settings UI** — responsive AdminThemeUikit/Konkat controls based on [pw-design-system](https://github.com/mxmsmnv/pw-design-system), including light/dark theme support and provider filtering.
+- **Media Playground** — choose provider, key, model, voice and prompt, then preview generated speech or images directly in the module settings.
 
 ---
 
@@ -111,7 +113,16 @@ $res = $ai->run([
 ]);
 echo $res['content'];
 
-// 7) Write AI copy into page fields
+// 7) Speech generation (xAI/OpenRouter defaults to Eve)
+$speech = $ai->audio('Good morning', [
+    'provider' => 'openrouter',
+    'model' => 'x-ai/grok-voice-tts-1.0',
+    'voice' => 'eve',
+    'language' => 'en',
+]);
+file_put_contents('morning.mp3', base64_decode($speech['audio']));
+
+// 8) Write AI copy into page fields
 $ai->generate($page, [
     ['field' => 'summary',  'prompt' => "One-sentence summary of {$page->title}"],
     ['field' => 'body',     'prompt' => "Two paragraphs about {$page->title}"],
@@ -131,12 +142,14 @@ $ai->generate($page, [
 | `askMultiple($msg, $providers)` | `array` | Same prompt to several providers |
 | `embed($input, $opts)` | `array` | `embedding` (single) / `embeddings` (batch), `model`, `usage` |
 | `image($prompt, $opts)` | `array` | `url` / `b64`, `model`, `provider` |
+| `audio($text, $opts)` / `speech(...)` | `array` | Base64 `audio`, MIME type, model, voice, provider |
 | `run($opts)` | `array` | Tool-use loop: `content`, `steps`, `messages`, `usage` |
 | `generate($page, $blocks, $opts)` | `array` | Multi-block field generation |
 | `askAndSave($page, $fields, $msg)` | `array` | Ask + save to field (skip if filled) |
 | `saveTo` / `loadFrom` | `bool` / `?string` | Manual field storage |
 | `getProvidersStatus()` | `array` | Providers + key status |
-| `getDefaultEmbedProvider()` / `getDefaultImageProvider()` | `?string` | First capable provider with a key |
+| `getDefaultEmbedProvider()` / `getDefaultImageProvider()` / `getDefaultAudioProvider()` | `?string` | First capable provider with a key |
+| `getCapabilityProviders()` / `getCapabilityOptions()` | `array` | Discover configured capabilities, models, and voices |
 | `clearCache` / `clearAllCache` / `cacheStats` | — | Cache management |
 
 Common `$opts`: `provider`, `model`, `systemPrompt`, `maxTokens`, `temperature`,
@@ -161,8 +174,9 @@ foreach($result['sources'] ?? [] as $source) {
 }
 ```
 
-Embeddings/images also accept `provider`/`model`; `image()` takes `aspect`,
-`resolution`, `size`, `n`. `vision($prompt, $images, $opts)` accepts bounded
+Embeddings/images/speech also accept `provider`/`model`; `image()` takes `aspect`,
+`resolution`, `size`, `n`. `audio()` takes `voice`, `language`, `instructions`,
+`format`, and `speed`. `vision($prompt, $images, $opts)` accepts bounded
 local image paths or image data URLs.
 
 ---

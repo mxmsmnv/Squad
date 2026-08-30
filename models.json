@@ -12,6 +12,24 @@
   },
   "openai": {
     "defaultModel": "gpt-5.4",
+    "defaultImageModel": "gpt-image-1",
+    "imageModels": {
+      "gpt-image-1": "GPT Image 1",
+      "dall-e-3": "DALL·E 3"
+    },
+    "defaultAudioModel": "gpt-4o-mini-tts",
+    "audioModels": {
+      "gpt-4o-mini-tts": "GPT-4o Mini TTS",
+      "tts-1-hd": "TTS-1 HD",
+      "tts-1": "TTS-1"
+    },
+    "defaultAudioVoice": "marin",
+    "audioVoices": {
+      "marin": "Marin", "cedar": "Cedar", "coral": "Coral",
+      "alloy": "Alloy", "ash": "Ash", "ballad": "Ballad",
+      "echo": "Echo", "fable": "Fable", "nova": "Nova",
+      "onyx": "Onyx", "sage": "Sage", "shimmer": "Shimmer", "verse": "Verse"
+    },
     "models": {
       "gpt-5.4": "GPT-5.4",
       "gpt-5.4-mini": "GPT-5.4 Mini",
@@ -31,6 +49,19 @@
   },
   "xai": {
     "defaultModel": "grok-4-1-fast-non-reasoning",
+    "defaultImageModel": "grok-imagine-image-2.0",
+    "imageModels": {
+      "grok-imagine-image-2.0": "Grok Imagine Image 2.0",
+      "grok-imagine-image": "Grok Imagine Image"
+    },
+    "defaultAudioModel": "xai-tts",
+    "audioModels": {
+      "xai-tts": "xAI Text to Speech"
+    },
+    "defaultAudioVoice": "eve",
+    "audioVoices": {
+      "eve": "Eve", "ara": "Ara", "leo": "Leo", "rex": "Rex", "sal": "Sal"
+    },
     "models": {
       "grok-4.20": "Grok 4.20",
       "grok-4-1-fast-reasoning": "Grok 4.1 Fast (Reasoning)",
@@ -40,6 +71,14 @@
   },
   "openrouter": {
     "defaultModel": "openrouter/auto",
+    "defaultAudioModel": "x-ai/grok-voice-tts-1.0",
+    "audioModels": {
+      "x-ai/grok-voice-tts-1.0": "xAI Grok Voice TTS 1.0"
+    },
+    "defaultAudioVoice": "eve",
+    "audioVoices": {
+      "eve": "Eve", "ara": "Ara", "leo": "Leo", "rex": "Rex", "sal": "Sal"
+    },
     "defaultEmbedModel": "openai/text-embedding-3-small",
     "embedModels": {
       "google/gemini-embedding-2": "Gemini Embedding 2 (via OR)",

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.10.0] — 2026-08-30
+
+- Added provider-independent `audio()` / `speech()` text-to-speech generation
+  with normalized binary output, MIME metadata, bounded response size, and
+  support for xAI Voice, OpenRouter TTS, and OpenAI TTS.
+- Added first-class audio model and voice catalogs, including Grok Voice TTS
+  with Eve through OpenRouter and native xAI Voice.
+- Added a Media Playground to module settings with provider, key and model
+  selection, speech direction, voice/language/format controls, image controls,
+  and inline audio/image previews.
+- Extended `models.json` so image/audio models and voices can be maintained
+  beside ordinary text models without application-specific settings.
+- Updated the xAI image default to `grok-imagine-image-2.0`.
+
 ## [1.9.1] — 2026-07-31
 
 - Reduced the default provider timeout to 20 seconds and the connection timeout

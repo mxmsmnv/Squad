@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.9.1
+ * @version 1.10.0
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -30,8 +30,8 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.9.1',
-            'summary'  => __('AI integration for ProcessWire. Supports Anthropic, OpenAI, Google, xAI, and OpenRouter.'),
+            'version'  => '1.10.0',
+            'summary'  => __('Multimodal AI integration for ProcessWire: text, speech, images, vision, embeddings, and tools.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
             'icon'     => 'brain',
@@ -97,6 +97,22 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 'gpt-image-1' => 'GPT Image 1',
                 'dall-e-3'    => 'DALL·E 3',
             ],
+            // text to speech
+            'audioUrl'          => 'https://api.openai.com/v1/audio/speech',
+            'defaultAudioModel' => 'gpt-4o-mini-tts',
+            'audioModels' => [
+                'gpt-4o-mini-tts' => 'GPT-4o Mini TTS',
+                'tts-1-hd'        => 'TTS-1 HD',
+                'tts-1'           => 'TTS-1',
+            ],
+            'defaultAudioVoice' => 'marin',
+            'audioVoices' => [
+                'marin' => 'Marin', 'cedar' => 'Cedar', 'coral' => 'Coral',
+                'alloy' => 'Alloy', 'ash' => 'Ash', 'ballad' => 'Ballad',
+                'echo' => 'Echo', 'fable' => 'Fable', 'nova' => 'Nova',
+                'onyx' => 'Onyx', 'sage' => 'Sage', 'shimmer' => 'Shimmer',
+                'verse' => 'Verse',
+            ],
         ],
         'google' => [
             'label'       => 'Google (Gemini)',
@@ -140,9 +156,21 @@ class Squad extends WireData implements Module, ConfigurableModule {
             ],
             // image generation (Imagine)
             'imageUrl'          => 'https://api.x.ai/v1/images/generations',
-            'defaultImageModel' => 'grok-imagine-image',
+            'defaultImageModel' => 'grok-imagine-image-2.0',
             'imageModels' => [
-                'grok-imagine-image' => 'Grok Imagine (Standard)',
+                'grok-imagine-image-2.0' => 'Grok Imagine Image 2.0',
+                'grok-imagine-image'     => 'Grok Imagine Image',
+            ],
+            // text to speech (xAI Voice)
+            'audioUrl'          => 'https://api.x.ai/v1/tts',
+            'defaultAudioModel' => 'xai-tts',
+            'audioModels' => [
+                'xai-tts' => 'xAI Text to Speech',
+            ],
+            'defaultAudioVoice' => 'eve',
+            'audioVoices' => [
+                'eve' => 'Eve', 'ara' => 'Ara', 'leo' => 'Leo',
+                'rex' => 'Rex', 'sal' => 'Sal',
             ],
         ],
         'openrouter' => [
@@ -191,6 +219,17 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 // Zhipu AI
                 'z-ai/glm-4.7'                              => 'GLM 4.7',
                 'z-ai/glm-5'                                => 'GLM 5',
+            ],
+            // OpenAI-compatible text to speech
+            'audioUrl'          => 'https://openrouter.ai/api/v1/audio/speech',
+            'defaultAudioModel' => 'x-ai/grok-voice-tts-1.0',
+            'audioModels' => [
+                'x-ai/grok-voice-tts-1.0' => 'xAI Grok Voice TTS 1.0',
+            ],
+            'defaultAudioVoice' => 'eve',
+            'audioVoices' => [
+                'eve' => 'Eve', 'ara' => 'Ara', 'leo' => 'Leo',
+                'rex' => 'Rex', 'sal' => 'Sal',
             ],
             // OpenRouter exposes an OpenAI-compatible embeddings API as well.
             'embedUrl'          => 'https://openrouter.ai/api/v1/embeddings',
@@ -504,15 +543,21 @@ class Squad extends WireData implements Module, ConfigurableModule {
                         $providers[$providerKey]['defaultModel'] = $modelConfig['defaultModel'];
                     }
 
-                    if (!empty($modelConfig['models']) && is_array($modelConfig['models'])) {
+                    foreach (['models', 'imageModels', 'audioModels', 'audioVoices', 'embedModels'] as $catalogKey) {
+                        if (empty($modelConfig[$catalogKey]) || !is_array($modelConfig[$catalogKey])) continue;
                         $models = [];
-                        foreach ($modelConfig['models'] as $modelKey => $label) {
+                        foreach ($modelConfig[$catalogKey] as $modelKey => $label) {
                             $modelKey = trim((string)$modelKey);
                             if ($modelKey === '') continue;
                             $models[$modelKey] = trim((string)$label) ?: $modelKey;
                         }
                         if ($models) {
-                            $providers[$providerKey]['models'] = $models;
+                            $providers[$providerKey][$catalogKey] = $models;
+                        }
+                    }
+                    foreach (['defaultImageModel', 'defaultAudioModel', 'defaultAudioVoice', 'defaultEmbedModel'] as $defaultKey) {
+                        if (!empty($modelConfig[$defaultKey]) && is_string($modelConfig[$defaultKey])) {
+                            $providers[$providerKey][$defaultKey] = $modelConfig[$defaultKey];
                         }
                     }
                 }
@@ -546,6 +591,29 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         $config = $this->getProviderDefinition($providerKey);
         return is_array($config['models'] ?? null) ? $config['models'] : [];
+    }
+
+    /** Return a provider's model/voice catalog for a non-text capability. */
+    public function getCapabilityOptions(string $providerKey, string $capability): array {
+        $definition = $this->getProviderDefinition($providerKey) ?: [];
+        $map = [
+            'image' => 'imageModels', 'audio' => 'audioModels',
+            'speech' => 'audioModels', 'voice' => 'audioVoices',
+            'embed' => 'embedModels',
+        ];
+        $key = $map[$capability] ?? 'models';
+        return is_array($definition[$key] ?? null) ? $definition[$key] : [];
+    }
+
+    /** Providers with an active key and the requested first-class capability. */
+    public function getCapabilityProviders(string $capability): array {
+        $endpoint = ['image' => 'imageUrl', 'audio' => 'audioUrl', 'speech' => 'audioUrl', 'embed' => 'embedUrl'][$capability] ?? 'url';
+        $result = [];
+        foreach ($this->getProviderDefinitions() as $key => $definition) {
+            if (empty($definition[$endpoint]) || !$this->getProvider($key)) continue;
+            $result[$key] = $definition['label'] ?? $key;
+        }
+        return $result;
     }
 
     /**
@@ -859,6 +927,48 @@ class Squad extends WireData implements Module, ConfigurableModule {
     }
 
     /**
+     * Generate speech audio from text.
+     *
+     * @param array $options provider, model, voice, language, instructions,
+     *                       format, speed, sampleRate, bitRate, timeout, key, keyIndex
+     */
+    public function audio(string $text, array $options = []): array {
+        $text = trim($text);
+        if ($text === '') return $this->errorResponse('Empty speech text.');
+        if (mb_strlen($text) > 4096) return $this->errorResponse('Speech text exceeds 4096 characters.');
+
+        $providerKey = $options['provider'] ?? $this->getDefaultAudioProvider();
+        if (!$providerKey) return $this->errorResponse('No audio-capable provider is configured.');
+        $provider = $this->getProvider($providerKey, $options['key'] ?? null, $options['keyIndex'] ?? null);
+        if (!$provider) return $this->errorResponse("No active key for audio provider '{$providerKey}'.");
+        if (!empty($options['timeout'])) $provider->setTimeout((int)$options['timeout']);
+
+        $definition = $this->getProviderDefinition($providerKey) ?: [];
+        $opts = array_merge($options, [
+            'audioUrl' => $definition['audioUrl'] ?? '',
+            'model' => $options['model'] ?? ($definition['defaultAudioModel'] ?? ''),
+            'voice' => $options['voice'] ?? ($definition['defaultAudioVoice'] ?? ''),
+        ]);
+        try {
+            $result = $provider->generateAudio($text, $opts);
+            if (!empty($result['success'])) {
+                $this->log("Audio from {$providerKey}/" . ($result['model'] ?? '?') . '/' . ($result['voice'] ?? '?'));
+            } else {
+                $this->logError('audio() error: ' . ($result['message'] ?? 'unknown'));
+            }
+            return $result;
+        } catch (\Throwable $e) {
+            $this->logError('audio() error: ' . $e->getMessage());
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /** Alias that reads naturally in application hooks. */
+    public function speech(string $text, array $options = []): array {
+        return $this->audio($text, $options);
+    }
+
+    /**
      * Analyze local images or image data URLs with a multimodal chat model.
      * Remote URLs are deliberately rejected; callers control acquisition and SSRF policy.
      */
@@ -1014,6 +1124,17 @@ class Squad extends WireData implements Module, ConfigurableModule {
         foreach (array_merge(['xai'], array_keys($defs)) as $key) {
             $def = $defs[$key] ?? null;
             if (!$def || empty($def['imageUrl'])) continue;
+            if ($this->getProvider($key)) return $key;
+        }
+        return null;
+    }
+
+    /** The first audio-capable provider that has an active key (prefers xAI). */
+    public function getDefaultAudioProvider(): ?string {
+        $definitions = $this->getProviderDefinitions();
+        foreach (array_unique(array_merge(['xai', 'openai'], array_keys($definitions))) as $key) {
+            $definition = $definitions[$key] ?? null;
+            if (!$definition || empty($definition['audioUrl'])) continue;
             if ($this->getProvider($key)) return $key;
         }
         return null;
@@ -1719,6 +1840,12 @@ class Squad extends WireData implements Module, ConfigurableModule {
             case 'test_chat':
                 $result = $this->ajaxTestChat();
                 break;
+            case 'test_audio':
+                $result = $this->ajaxTestAudio();
+                break;
+            case 'test_image':
+                $result = $this->ajaxTestImage();
+                break;
             case 'refresh_models':
                 $result = $this->ajaxRefreshModels();
                 break;
@@ -1865,6 +1992,61 @@ class Squad extends WireData implements Module, ConfigurableModule {
         return $result;
     }
 
+    /** Generate a bounded speech preview from the module playground. */
+    protected function ajaxTestAudio(): array {
+        $providerKey = $this->wire('input')->post->name('provider');
+        $keyIndex = $this->wire('input')->post->int('key_index');
+        $text = trim((string)($_POST['text'] ?? ''));
+        if (!$providerKey || !$this->providerSupports($providerKey, 'audioUrl')) {
+            return ['success' => false, 'message' => 'Invalid audio provider.'];
+        }
+        if ($text === '' || mb_strlen($text) > 4096) {
+            return ['success' => false, 'message' => 'Enter between 1 and 4096 characters.'];
+        }
+        $options = [
+            'provider' => $providerKey,
+            'keyIndex' => $keyIndex,
+            'model' => trim((string)($_POST['model'] ?? '')),
+            'voice' => trim((string)($_POST['voice'] ?? '')),
+            'language' => trim((string)($_POST['language'] ?? 'auto')) ?: 'auto',
+            'instructions' => trim((string)($_POST['instructions'] ?? '')),
+            'format' => trim((string)($_POST['format'] ?? 'mp3')),
+            'timeout' => max(5, min(120, (int)($_POST['timeout'] ?? 45))),
+        ];
+        $result = $this->audio($text, $options);
+        unset($result['raw']);
+        return $result;
+    }
+
+    /** Generate an image preview from the module playground. */
+    protected function ajaxTestImage(): array {
+        $providerKey = $this->wire('input')->post->name('provider');
+        $keyIndex = $this->wire('input')->post->int('key_index');
+        $prompt = trim((string)($_POST['prompt'] ?? ''));
+        if (!$providerKey || !$this->providerSupports($providerKey, 'imageUrl')) {
+            return ['success' => false, 'message' => 'Invalid image provider.'];
+        }
+        if ($prompt === '' || mb_strlen($prompt) > 4000) {
+            return ['success' => false, 'message' => 'Enter an image prompt between 1 and 4000 characters.'];
+        }
+        $result = $this->image($prompt, [
+            'provider' => $providerKey,
+            'keyIndex' => $keyIndex,
+            'model' => trim((string)($_POST['model'] ?? '')),
+            'aspect' => trim((string)($_POST['aspect'] ?? '')),
+            'resolution' => trim((string)($_POST['resolution'] ?? '')),
+            'response_format' => trim((string)($_POST['response_format'] ?? '')),
+            'timeout' => max(5, min(120, (int)($_POST['timeout'] ?? 60))),
+        ]);
+        unset($result['raw']);
+        return $result;
+    }
+
+    protected function providerSupports(string $providerKey, string $endpoint): bool {
+        $definition = $this->getProviderDefinition($providerKey);
+        return is_array($definition) && !empty($definition[$endpoint]);
+    }
+
     /**
      * Refresh provider model list via AJAX.
      */
@@ -1894,7 +2076,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         // UIkit-native, theme-aware enhancements based on pw-design-system.
         $this->wire('config')->styles->add(
-            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.8.0'
+            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.10.0'
         );
 
         // Sweep any plaintext keys left in the config field into the encrypted
@@ -2089,6 +2271,19 @@ class Squad extends WireData implements Module, ConfigurableModule {
         $f->value = $this->renderTestChatUI();
         $fieldset->add($f);
 
+        $inputfields->add($fieldset);
+
+        // ─── Media Playground ───────────────────────────────────────────
+        $fieldset = $modules->get('InputfieldFieldset');
+        $fieldset->label = $this->_('Media Playground');
+        $fieldset->icon = 'magic';
+        $fieldset->description = $this->_('Generate and preview speech or images with any configured media-capable provider.');
+        $fieldset->collapsed = Inputfield::collapsedYes;
+
+        $f = $modules->get('InputfieldMarkup');
+        $f->label = $this->_('Speech & Images');
+        $f->value = $this->renderMediaPlaygroundUI();
+        $fieldset->add($f);
         $inputfields->add($fieldset);
 
         // Hidden field for providers JSON data. Kept empty on purpose: keys are
@@ -2598,6 +2793,211 @@ class Squad extends WireData implements Module, ConfigurableModule {
 HTML;
 
         return $html;
+    }
+
+    /** Render the first-class speech/image playground. */
+    protected function renderMediaPlaygroundUI(): string {
+        $moduleUrl = $this->wire('config')->urls->admin . 'module/edit?name=Squad';
+        $definitions = $this->getProviderDefinitions();
+        $storedKeys = $this->getAllProviderKeys();
+        $data = ['audio' => [], 'image' => []];
+
+        foreach ($definitions as $providerKey => $definition) {
+            $keys = [];
+            foreach (($storedKeys[$providerKey] ?? []) as $index => $key) {
+                if (empty($key['enabled']) || empty($key['key'])) continue;
+                $keys[] = [
+                    'index' => $index,
+                    'label' => trim((string)($key['label'] ?? '')) ?: ('Key #' . ($index + 1)),
+                ];
+            }
+            if (!$keys) continue;
+
+            if (!empty($definition['audioUrl'])) {
+                $data['audio'][$providerKey] = [
+                    'label' => $definition['label'] ?? $providerKey,
+                    'keys' => $keys,
+                    'models' => $definition['audioModels'] ?? [],
+                    'defaultModel' => $definition['defaultAudioModel'] ?? '',
+                    'voices' => $definition['audioVoices'] ?? [],
+                    'defaultVoice' => $definition['defaultAudioVoice'] ?? '',
+                    'supportsInstructions' => $providerKey === 'openai',
+                ];
+            }
+            if (!empty($definition['imageUrl'])) {
+                $data['image'][$providerKey] = [
+                    'label' => $definition['label'] ?? $providerKey,
+                    'keys' => $keys,
+                    'models' => $definition['imageModels'] ?? [],
+                    'defaultModel' => $definition['defaultImageModel'] ?? '',
+                ];
+            }
+        }
+
+        $dataJson = $this->jsonScript($data);
+        $urlJson = $this->jsonScript($moduleUrl);
+        $csrfJson = $this->getCsrfFieldsJson();
+
+        return <<<HTML
+<div id="squad-media-playground" class="squad-media-playground">
+    <div class="squad-media-tabs" role="tablist" aria-label="Media type">
+        <button type="button" class="uk-button is-active" data-media-tab="audio" role="tab" aria-selected="true"><i class="fa fa-volume-up"></i> Speech</button>
+        <button type="button" class="uk-button" data-media-tab="image" role="tab" aria-selected="false"><i class="fa fa-image"></i> Images</button>
+    </div>
+
+    <div class="squad-media-selects">
+        <label><span>Provider</span><select id="squad-media-provider" class="uk-select"></select></label>
+        <label><span>API key</span><select id="squad-media-key" class="uk-select"></select></label>
+        <label><span>Model</span><select id="squad-media-model" class="uk-select"></select></label>
+    </div>
+
+    <section id="squad-media-audio" class="squad-media-panel" data-media-panel="audio">
+        <label class="squad-media-prompt"><span>Text to speak</span><textarea id="squad-audio-text" class="uk-textarea" rows="3">Welcome to Vocapair. Match the words and make them click.</textarea></label>
+        <label class="squad-media-prompt"><span>Voice direction <small>(when supported by the model)</small></span><textarea id="squad-audio-instructions" class="uk-textarea" rows="2">Clear, friendly dictionary pronunciation. Natural pace, no added words.</textarea></label>
+        <div class="squad-media-options">
+            <label><span>Voice</span><select id="squad-audio-voice" class="uk-select"></select></label>
+            <label><span>Language</span><input id="squad-audio-language" class="uk-input" value="en" placeholder="auto or BCP-47 code"></label>
+            <label><span>Format</span><select id="squad-audio-format" class="uk-select"><option value="mp3">MP3</option><option value="wav">WAV</option><option value="aac">AAC</option><option value="opus">Opus</option><option value="flac">FLAC</option></select></label>
+        </div>
+        <button type="button" class="uk-button uk-button-primary squad-media-generate" data-generate="audio"><i class="fa fa-play"></i> Generate speech</button>
+    </section>
+
+    <section id="squad-media-image" class="squad-media-panel" data-media-panel="image" hidden>
+        <label class="squad-media-prompt"><span>Image prompt</span><textarea id="squad-image-prompt" class="uk-textarea" rows="4">A friendly editorial illustration of a human-like hedgehog learning vocabulary with two word cards, warm cream background, clean shapes, no text</textarea></label>
+        <div class="squad-media-options">
+            <label><span>Aspect ratio</span><select id="squad-image-aspect" class="uk-select"><option value="1:1">1:1</option><option value="4:3">4:3</option><option value="3:4">3:4</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="auto">Auto</option></select></label>
+            <label><span>Resolution</span><select id="squad-image-resolution" class="uk-select"><option value="1k">1K</option><option value="2k">2K</option></select></label>
+            <label><span>Response</span><select id="squad-image-response-format" class="uk-select"><option value="url">Temporary URL</option><option value="b64_json">Embedded preview</option></select></label>
+        </div>
+        <button type="button" class="uk-button uk-button-primary squad-media-generate" data-generate="image"><i class="fa fa-magic"></i> Generate image</button>
+    </section>
+
+    <div id="squad-media-result" class="squad-media-result" role="status" aria-live="polite" hidden></div>
+</div>
+<script>
+(function() {
+    var data = {$dataJson};
+    var endpoint = {$urlJson};
+    var csrf = {$csrfJson};
+    var type = 'audio';
+    var provider = document.getElementById('squad-media-provider');
+    var key = document.getElementById('squad-media-key');
+    var model = document.getElementById('squad-media-model');
+    var voice = document.getElementById('squad-audio-voice');
+    var result = document.getElementById('squad-media-result');
+
+    function fill(select, options, selected) {
+        select.innerHTML = '';
+        Object.keys(options || {}).forEach(function(value) {
+            var option = document.createElement('option');
+            option.value = value;
+            option.textContent = options[value];
+            option.selected = value === selected;
+            select.appendChild(option);
+        });
+    }
+    function updateProvider() {
+        var config = (data[type] || {})[provider.value];
+        key.innerHTML = '';
+        if (!config) {
+            key.disabled = model.disabled = true;
+            return;
+        }
+        (config.keys || []).forEach(function(item) {
+            var option = document.createElement('option');
+            option.value = item.index;
+            option.textContent = item.label;
+            key.appendChild(option);
+        });
+        fill(model, config.models, config.defaultModel);
+        key.disabled = !config.keys.length;
+        model.disabled = !Object.keys(config.models || {}).length;
+        if (type === 'audio') {
+            fill(voice, config.voices, config.defaultVoice);
+            document.getElementById('squad-audio-instructions').disabled = !config.supportsInstructions;
+        }
+    }
+    function updateType(next) {
+        type = next;
+        document.querySelectorAll('[data-media-tab]').forEach(function(tab) {
+            var active = tab.dataset.mediaTab === type;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.querySelectorAll('[data-media-panel]').forEach(function(panel) {
+            panel.hidden = panel.dataset.mediaPanel !== type;
+        });
+        var providers = {};
+        Object.keys(data[type] || {}).forEach(function(value) { providers[value] = data[type][value].label; });
+        fill(provider, providers, Object.keys(providers)[0] || '');
+        updateProvider();
+        result.hidden = true;
+    }
+    function showError(message) {
+        result.hidden = false;
+        result.className = 'squad-media-result is-error';
+        result.textContent = message;
+    }
+    function generate() {
+        if (!provider.value || key.disabled) return showError('Add and enable a key for a media-capable provider first.');
+        var button = document.querySelector('[data-generate="' + type + '"]');
+        var payload = Object.assign({}, csrf, {
+            squad_action: type === 'audio' ? 'test_audio' : 'test_image',
+            provider: provider.value,
+            key_index: key.value,
+            model: model.value,
+            timeout: type === 'audio' ? 45 : 60
+        });
+        if (type === 'audio') {
+            payload.text = document.getElementById('squad-audio-text').value;
+            payload.instructions = document.getElementById('squad-audio-instructions').value;
+            payload.voice = voice.value;
+            payload.language = document.getElementById('squad-audio-language').value;
+            payload.format = document.getElementById('squad-audio-format').value;
+        } else {
+            payload.prompt = document.getElementById('squad-image-prompt').value;
+            payload.aspect = document.getElementById('squad-image-aspect').value;
+            payload.resolution = document.getElementById('squad-image-resolution').value;
+            payload.response_format = document.getElementById('squad-image-response-format').value;
+        }
+        result.hidden = false;
+        result.className = 'squad-media-result is-loading';
+        result.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Generating preview…';
+        button.disabled = true;
+        jQuery.ajax({url: endpoint, type: 'POST', data: payload, dataType: 'json', timeout: 125000})
+            .done(function(response) {
+                if (!response.success) return showError(response.message || 'Generation failed.');
+                result.className = 'squad-media-result is-success';
+                result.innerHTML = '';
+                if (type === 'audio') {
+                    var audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.preload = 'metadata';
+                    audio.src = 'data:' + (response.mime || 'audio/mpeg') + ';base64,' + response.audio;
+                    result.appendChild(audio);
+                } else {
+                    var image = document.createElement('img');
+                    image.alt = 'Generated image preview';
+                    image.src = response.url || ('data:image/png;base64,' + response.b64);
+                    result.appendChild(image);
+                }
+                var meta = document.createElement('small');
+                meta.textContent = (response.provider || provider.value) + ' · ' + (response.model || model.value) + (response.voice ? ' · ' + response.voice : '');
+                result.appendChild(meta);
+            })
+            .fail(function(xhr, status) { showError('Request failed: ' + status); })
+            .always(function() { button.disabled = false; });
+    }
+
+    document.querySelectorAll('[data-media-tab]').forEach(function(tab) {
+        tab.addEventListener('click', function() { updateType(tab.dataset.mediaTab); });
+    });
+    document.querySelectorAll('[data-generate]').forEach(function(button) { button.addEventListener('click', generate); });
+    provider.addEventListener('change', updateProvider);
+    updateType('audio');
+})();
+</script>
+HTML;
     }
 
     /**

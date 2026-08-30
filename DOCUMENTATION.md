@@ -303,7 +303,7 @@ Result shape:
     'success'  => true,
     'url'      => 'https://…/generated.png',  // empty if the provider returns base64 only
     'b64'      => '…',                         // empty if the provider returns a URL only
-    'model'    => 'grok-imagine-image',
+    'model'    => 'grok-imagine-image-2.0',
     'provider' => 'xai',
     'message'  => 'OK',
     'raw'      => [ /* full API response */ ],
@@ -311,6 +311,31 @@ Result shape:
 ```
 
 To save the result into a ProcessWire image field, download/decode it and add it to the field as usual (Olivia does this for generated sites).
+
+### `audio(string $text, array $options = []): array`
+
+Generates speech through any configured TTS-capable provider. `speech()` is an
+alias. The result contains base64-encoded `audio`, `mime`, `extension`,
+`provider`, `model`, and `voice`, so callers decide whether to preview, store,
+or pass the bytes into a ProcessWire file field.
+
+```php
+$result = $ai->audio('hospital', [
+    'provider' => 'openrouter',
+    'model' => 'x-ai/grok-voice-tts-1.0',
+    'voice' => 'eve',
+    'language' => 'en',
+    'format' => 'mp3',
+]);
+
+if ($result['success']) {
+    file_put_contents('/private/drafts/hospital.mp3', base64_decode($result['audio']));
+}
+```
+
+OpenAI also accepts `instructions` for supported TTS models. Other options are
+`speed`, `sampleRate`, `bitRate`, `timeout`, `key`, and `keyIndex`. Generated
+audio is capped at 20 MB in the provider client.
 
 ### `run(array $options = []): array`
 

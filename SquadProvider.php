@@ -790,6 +790,88 @@ class SquadProvider {
     }
 
     /**
+     * Generate speech and normalize provider-specific binary responses.
+     *
+     * OpenAI accepts a model plus optional speaking instructions. xAI exposes
+     * one TTS engine at /v1/tts and uses voice_id/language/output_format.
+     */
+    public function generateAudio(string $text, array $options = []): array {
+        $audioUrl = (string)($options['audioUrl'] ?? ($this->config['audioUrl'] ?? ''));
+        if ($audioUrl === '') {
+            return ['success' => false, 'audio' => '', 'message' => "Provider '{$this->providerKey}' has no audio endpoint."];
+        }
+
+        $model = (string)($options['model'] ?? ($this->config['defaultAudioModel'] ?? ''));
+        $voice = (string)($options['voice'] ?? ($this->config['defaultAudioVoice'] ?? ''));
+        $format = strtolower((string)($options['format'] ?? 'mp3'));
+        $allowedFormats = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
+        if (!in_array($format, $allowedFormats, true)) $format = 'mp3';
+
+        if ($this->providerKey === 'xai') {
+            $body = [
+                'text' => $text,
+                'voice_id' => $voice ?: 'eve',
+                'language' => (string)($options['language'] ?? 'auto'),
+                'output_format' => [
+                    'codec' => $format,
+                    'sample_rate' => max(8000, min(48000, (int)($options['sampleRate'] ?? 24000))),
+                    'bit_rate' => max(32000, min(320000, (int)($options['bitRate'] ?? 128000))),
+                ],
+            ];
+        } else {
+            $body = [
+                'model' => $model,
+                'input' => $text,
+                'voice' => $voice,
+                'response_format' => $format,
+                'speed' => max(0.25, min(4.0, (float)($options['speed'] ?? 1.0))),
+            ];
+            $instructions = trim((string)($options['instructions'] ?? ''));
+            if ($this->providerKey === 'openai' && $instructions !== '' && !in_array($model, ['tts-1', 'tts-1-hd'], true)) {
+                $body['instructions'] = $instructions;
+            }
+        }
+
+        $headers = ['Content-Type: application/json', 'Authorization: Bearer ' . $this->apiKey];
+        foreach ($this->config['extraHeaders'] ?? [] as $key => $value) {
+            if ($value !== '') $headers[] = "{$key}: {$value}";
+        }
+        $response = $this->curlBinaryRequest($audioUrl, $body, $headers, 20 * 1024 * 1024);
+        if (!$response['success']) {
+            return [
+                'success' => false, 'audio' => '', 'mime' => '', 'extension' => $format,
+                'model' => $model, 'voice' => $voice, 'provider' => $this->providerKey,
+                'message' => $response['message'],
+            ];
+        }
+
+        $mime = (string)($response['contentType'] ?: self::audioMime($format));
+        return [
+            'success' => true,
+            'audio' => base64_encode($response['body']),
+            'mime' => $mime,
+            'extension' => self::audioExtension($format, $mime),
+            'model' => $model,
+            'voice' => $voice,
+            'provider' => $this->providerKey,
+            'message' => 'OK',
+        ];
+    }
+
+    protected static function audioMime(string $format): string {
+        return [
+            'mp3' => 'audio/mpeg', 'opus' => 'audio/ogg', 'aac' => 'audio/aac',
+            'flac' => 'audio/flac', 'wav' => 'audio/wav', 'pcm' => 'audio/pcm',
+        ][$format] ?? 'application/octet-stream';
+    }
+
+    protected static function audioExtension(string $format, string $mime): string {
+        if (str_contains($mime, 'mpeg')) return 'mp3';
+        if (str_contains($mime, 'ogg')) return 'opus';
+        return $format;
+    }
+
+    /**
      * Create embeddings via an OpenAI-compatible /embeddings endpoint.
      *
      * @param array $texts list of strings (caller guarantees non-empty)
@@ -1080,6 +1162,57 @@ class SquadProvider {
             'message'  => 'OK',
             'httpCode' => $httpCode,
         ];
+    }
+
+    /** POST JSON and safely collect a bounded binary response. */
+    protected function curlBinaryRequest(string $url, array $body, array $headers, int $maxBytes): array {
+        $ch = curl_init();
+        $responseBody = '';
+        $contentType = '';
+        $tooLarge = false;
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($body),
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_TIMEOUT => $this->options['timeout'],
+            CURLOPT_CONNECTTIMEOUT => $this->options['connectTimeout'],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HEADERFUNCTION => static function($curl, string $line) use (&$contentType): int {
+                if (stripos($line, 'Content-Type:') === 0) {
+                    $contentType = trim(explode(';', substr($line, 13), 2)[0]);
+                }
+                return strlen($line);
+            },
+            CURLOPT_WRITEFUNCTION => static function($curl, string $chunk) use (&$responseBody, &$tooLarge, $maxBytes): int {
+                if (strlen($responseBody) + strlen($chunk) > $maxBytes) {
+                    $tooLarge = true;
+                    return 0;
+                }
+                $responseBody .= $chunk;
+                return strlen($chunk);
+            },
+        ]);
+
+        $ok = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        $errno = curl_errno($ch);
+
+        if ($tooLarge) return ['success' => false, 'body' => '', 'contentType' => $contentType, 'message' => 'Audio response exceeded 20 MB.'];
+        if ($ok === false || $errno) return ['success' => false, 'body' => '', 'contentType' => $contentType, 'message' => "cURL error ({$errno}): {$error}"];
+        if ($httpCode >= 400) {
+            $decoded = json_decode($responseBody, true);
+            $message = is_array($decoded)
+                ? (string)($decoded['error']['message'] ?? $decoded['error'] ?? "HTTP {$httpCode}")
+                : "HTTP {$httpCode}";
+            return ['success' => false, 'body' => '', 'contentType' => $contentType, 'message' => $message];
+        }
+        if ($responseBody === '') return ['success' => false, 'body' => '', 'contentType' => $contentType, 'message' => 'Provider returned empty audio.'];
+        return ['success' => true, 'body' => $responseBody, 'contentType' => $contentType, 'message' => 'OK'];
     }
 
     /**
