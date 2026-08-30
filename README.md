@@ -24,7 +24,7 @@ echo $ai->chat('Write a one-line tagline for a dentist in Boston.');
   plugin, Anthropic web search, OpenAI/xAI Responses search or native Google
   Search grounding; normalized citations are returned as `sources`.
 - **Embeddings** — `embed()` for one string or a batch (OpenAI, Google, Qwen, Zhipu). Powers RAG (see the [Atlas](https://github.com/mxmsmnv/Atlas) module).
-- **Images** — `image()` for text-to-image (xAI Grok Imagine, OpenAI gpt-image-1 / DALL·E 3).
+- **Images** — `image()` for text-to-image through xAI, OpenAI, or OpenRouter's dedicated Image API.
 - **Speech** — `audio()` / `speech()` for provider-independent TTS (xAI Voice, OpenRouter Grok Voice, OpenAI TTS), returning normalized base64 audio and metadata.
 - **Vision** — `vision()` analyzes up to four bounded local images through multimodal Anthropic or OpenAI-compatible models (8 MB/image, 20 MB total, 12,000 px/side, 32 MP).
 - **Tool use / agents** — `run()` drives a multi-step tool-calling loop (OpenAI **and** Anthropic tool formats).

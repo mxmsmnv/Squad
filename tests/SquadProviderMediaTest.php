@@ -18,6 +18,17 @@ final class CapturingSquadProvider extends SquadProvider {
             'message' => 'OK',
         ];
     }
+
+    protected function curlRequest(string $url, array $body, array $headers): array {
+        $this->capturedUrl = $url;
+        $this->capturedBody = $body;
+        return [
+            'success' => true,
+            'data' => ['data' => [['b64_json' => base64_encode('png-bytes'), 'media_type' => 'image/png']]],
+            'message' => 'OK',
+            'httpCode' => 200,
+        ];
+    }
 }
 
 function assertMedia(bool $condition, string $message): void {
@@ -55,5 +66,15 @@ $result = $openAI->generateAudio('welcome', ['instructions' => 'Speak warmly.'])
 assertMedia($result['success'], 'OpenAI speech should succeed.');
 assertMedia($openAI->capturedBody['instructions'] === 'Speak warmly.', 'OpenAI instructions missing.');
 assertMedia(base64_decode($result['audio'], true) !== false, 'Normalized audio is not valid base64.');
+
+$image = new CapturingSquadProvider('openrouter', [
+    'imageUrl' => 'https://openrouter.ai/api/v1/images',
+    'defaultImageModel' => 'x-ai/grok-imagine-image-2.0',
+], 'test-key', 'text-model');
+$result = $image->generateImage('A friendly hedgehog', ['aspect' => '1:1']);
+assertMedia($result['success'], 'OpenRouter image should succeed.');
+assertMedia($image->capturedBody['model'] === 'x-ai/grok-imagine-image-2.0', 'OpenRouter image model missing.');
+assertMedia($image->capturedBody['aspect_ratio'] === '1:1', 'OpenRouter image aspect ratio missing.');
+assertMedia($result['mime'] === 'image/png', 'Image MIME was not normalized.');
 
 echo "SquadProvider media tests passed\n";

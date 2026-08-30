@@ -739,7 +739,7 @@ class SquadProvider {
      * Generate an image via the provider's image endpoint (config['imageUrl'] or
      * options['imageUrl']). Normalizes xAI/OpenAI-style responses (data[0].url|b64_json).
      *
-     * @return array ['success','url','b64','model','provider','message','raw']
+     * @return array ['success','url','b64','mime','model','provider','message','raw']
      */
     public function generateImage(string $prompt, array $options = []): array {
         $imageUrl = (string)($options['imageUrl'] ?? ($this->config['imageUrl'] ?? ''));
@@ -782,6 +782,7 @@ class SquadProvider {
             'success'  => true,
             'url'      => (string)($item['url'] ?? ''),
             'b64'      => (string)($item['b64_json'] ?? ''),
+            'mime'     => (string)($item['media_type'] ?? 'image/png'),
             'model'    => $model,
             'provider' => $this->providerKey,
             'message'  => 'OK',

@@ -303,6 +303,7 @@ Result shape:
     'success'  => true,
     'url'      => 'https://…/generated.png',  // empty if the provider returns base64 only
     'b64'      => '…',                         // empty if the provider returns a URL only
+    'mime'     => 'image/png',
     'model'    => 'grok-imagine-image-2.0',
     'provider' => 'xai',
     'message'  => 'OK',

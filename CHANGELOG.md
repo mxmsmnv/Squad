@@ -7,6 +7,8 @@
   support for xAI Voice, OpenRouter TTS, and OpenAI TTS.
 - Added first-class audio model and voice catalogs, including Grok Voice TTS
   with Eve through OpenRouter and native xAI Voice.
+- Added OpenRouter's dedicated Image API and a current selectable image model
+  catalog, so one encrypted OpenRouter key can drive both speech and images.
 - Added a Media Playground to module settings with provider, key and model
   selection, speech direction, voice/language/format controls, image controls,
   and inline audio/image previews.

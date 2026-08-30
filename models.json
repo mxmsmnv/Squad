@@ -71,6 +71,15 @@
   },
   "openrouter": {
     "defaultModel": "openrouter/auto",
+    "defaultImageModel": "x-ai/grok-imagine-image-2.0",
+    "imageModels": {
+      "x-ai/grok-imagine-image-2.0": "xAI Grok Imagine Image 2.0",
+      "x-ai/grok-imagine-image-quality": "xAI Grok Imagine Image Quality",
+      "openai/gpt-image-2": "OpenAI GPT Image 2",
+      "openai/gpt-image-1-mini": "OpenAI GPT Image 1 Mini",
+      "black-forest-labs/flux.2-pro": "FLUX.2 Pro",
+      "black-forest-labs/flux.2-klein-4b": "FLUX.2 Klein 4B"
+    },
     "defaultAudioModel": "x-ai/grok-voice-tts-1.0",
     "audioModels": {
       "x-ai/grok-voice-tts-1.0": "xAI Grok Voice TTS 1.0"

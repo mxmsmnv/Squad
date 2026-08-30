@@ -231,6 +231,17 @@ class Squad extends WireData implements Module, ConfigurableModule {
                 'eve' => 'Eve', 'ara' => 'Ara', 'leo' => 'Leo',
                 'rex' => 'Rex', 'sal' => 'Sal',
             ],
+            // Dedicated OpenRouter Image API (base64 output)
+            'imageUrl'          => 'https://openrouter.ai/api/v1/images',
+            'defaultImageModel' => 'x-ai/grok-imagine-image-2.0',
+            'imageModels' => [
+                'x-ai/grok-imagine-image-2.0' => 'xAI Grok Imagine Image 2.0',
+                'x-ai/grok-imagine-image-quality' => 'xAI Grok Imagine Image Quality',
+                'openai/gpt-image-2' => 'OpenAI GPT Image 2',
+                'openai/gpt-image-1-mini' => 'OpenAI GPT Image 1 Mini',
+                'black-forest-labs/flux.2-pro' => 'FLUX.2 Pro',
+                'black-forest-labs/flux.2-klein-4b' => 'FLUX.2 Klein 4B',
+            ],
             // OpenRouter exposes an OpenAI-compatible embeddings API as well.
             'embedUrl'          => 'https://openrouter.ai/api/v1/embeddings',
             'defaultEmbedModel' => 'openai/text-embedding-3-small',
@@ -2867,7 +2878,7 @@ HTML;
         <div class="squad-media-options">
             <label><span>Aspect ratio</span><select id="squad-image-aspect" class="uk-select"><option value="1:1">1:1</option><option value="4:3">4:3</option><option value="3:4">3:4</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="auto">Auto</option></select></label>
             <label><span>Resolution</span><select id="squad-image-resolution" class="uk-select"><option value="1k">1K</option><option value="2k">2K</option></select></label>
-            <label><span>Response</span><select id="squad-image-response-format" class="uk-select"><option value="url">Temporary URL</option><option value="b64_json">Embedded preview</option></select></label>
+            <label><span>Response</span><select id="squad-image-response-format" class="uk-select"><option value="">Provider default</option><option value="url">Temporary URL</option><option value="b64_json">Embedded preview</option></select></label>
         </div>
         <button type="button" class="uk-button uk-button-primary squad-media-generate" data-generate="image"><i class="fa fa-magic"></i> Generate image</button>
     </section>
@@ -2978,7 +2989,7 @@ HTML;
                 } else {
                     var image = document.createElement('img');
                     image.alt = 'Generated image preview';
-                    image.src = response.url || ('data:image/png;base64,' + response.b64);
+                    image.src = response.url || ('data:' + (response.mime || 'image/png') + ';base64,' + response.b64);
                     result.appendChild(image);
                 }
                 var meta = document.createElement('small');
