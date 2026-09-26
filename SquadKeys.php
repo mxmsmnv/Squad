@@ -37,7 +37,7 @@ class SquadKeys extends Wire {
 				`status`       VARCHAR(32)  NOT NULL DEFAULT '',
 				`sort`         INT          NOT NULL DEFAULT 0,
 				`created`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				`modified`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				`modified`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (`id`),
 				KEY `provider` (`provider`)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
@@ -120,9 +120,10 @@ class SquadKeys extends Wire {
 		$this->ensureTable();
 		try {
 			$stmt = $this->wire('database')->prepare(
-				"INSERT INTO `" . self::TABLE . "` (`provider`,`label`,`key_enc`,`model`,`custom_model`,`enabled`,`status`,`sort`)
-				 VALUES (:p,:l,:k,:m,:cm,:e,:s,:so)"
+				"INSERT INTO `" . self::TABLE . "` (`provider`,`label`,`key_enc`,`model`,`custom_model`,`enabled`,`status`,`sort`,`created`,`modified`)
+				 VALUES (:p,:l,:k,:m,:cm,:e,:s,:so,:created,:modified)"
 			);
+			$now = date('Y-m-d H:i:s');
 			$stmt->execute([
 				':p'  => $provider,
 				':l'  => (string)($meta['label'] ?? ''),
@@ -132,6 +133,8 @@ class SquadKeys extends Wire {
 				':e'  => !empty($meta['enabled']) || !array_key_exists('enabled', $meta) ? 1 : 0,
 				':s'  => (string)($meta['status'] ?? ''),
 				':so' => (int)($meta['sort'] ?? 0),
+				':created' => $now,
+				':modified' => $now,
 			]);
 			return (int)$this->wire('database')->lastInsertId();
 		} catch (\Throwable $e) {

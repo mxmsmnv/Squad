@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.1] — 2026-09-26
+
+- Removed the MySQL-only `ON UPDATE CURRENT_TIMESTAMP` column clause and now
+  writes key-row creation/modification timestamps explicitly for consistent
+  MySQL, SQLite, and PostgreSQL behavior.
+
 ## [1.10.0] — 2026-08-30
 
 - Added provider-independent `audio()` / `speech()` text-to-speech generation

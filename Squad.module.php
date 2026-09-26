@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.10.0
+ * @version 1.10.1
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -30,7 +30,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.10.0',
+            'version'  => '1.10.1',
             'summary'  => __('Multimodal AI integration for ProcessWire: text, speech, images, vision, embeddings, and tools.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -2087,7 +2087,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         // UIkit-native, theme-aware enhancements based on pw-design-system.
         $this->wire('config')->styles->add(
-            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.10.0'
+            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.10.1'
         );
 
         // Sweep any plaintext keys left in the config field into the encrypted
