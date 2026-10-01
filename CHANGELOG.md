@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.2] — 2026-09-30
+
+- Normalized `ask()` failures so provider lookup errors and provider exceptions
+  always include `cached: false`, matching successful responses and the public
+  return contract.
+
 ## [1.10.1] — 2026-09-26
 
 - Removed the MySQL-only `ON UPDATE CURRENT_TIMESTAMP` column clause and now

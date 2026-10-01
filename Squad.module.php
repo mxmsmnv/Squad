@@ -8,7 +8,7 @@
  *
  * @author Maxim Semenov <maxim@smnv.org> (smnv.org)
  * @license MIT
- * @version 1.10.1
+ * @version 1.10.2
  * @see https://github.com/mxmsmnv/Squad
  */
 
@@ -30,7 +30,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return [
             'title'    => 'Squad',
-            'version'  => '1.10.1',
+            'version'  => '1.10.2',
             'summary'  => __('Multimodal AI integration for ProcessWire: text, speech, images, vision, embeddings, and tools.'),
             'author'   => 'Maxim Semenov',
             'href'     => 'https://smnv.org',
@@ -793,7 +793,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
         $provider = $this->getProvider($providerKey, $options['key'] ?? null, $options['keyIndex'] ?? null);
 
         if (!$provider) {
-            return $this->errorResponse("No active provider found for '{$providerKey}'");
+            return $this->askErrorResponse("No active provider found for '{$providerKey}'");
         }
 
         $model       = $options['model'] ?? $provider->getModel();
@@ -844,7 +844,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         } catch (\Throwable $e) {
             $this->logError("ask() error: " . $e->getMessage());
-            return $this->errorResponse($e->getMessage());
+            return $this->askErrorResponse($e->getMessage());
         }
     }
 
@@ -2087,7 +2087,7 @@ class Squad extends WireData implements Module, ConfigurableModule {
 
         // UIkit-native, theme-aware enhancements based on pw-design-system.
         $this->wire('config')->styles->add(
-            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.10.1'
+            $this->wire('config')->urls->siteModules . 'Squad/assets/squad-admin.css?v=1.10.2'
         );
 
         // Sweep any plaintext keys left in the config field into the encrypted
@@ -3367,5 +3367,12 @@ HTML;
             'usage'   => [],
             'raw'     => [],
         ];
+    }
+
+    /** Keep ask() error responses consistent with its documented cache contract. */
+    protected function askErrorResponse(string $message): array {
+        $result = $this->errorResponse($message);
+        $result['cached'] = false;
+        return $result;
     }
 }
